@@ -28,8 +28,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DH.NStardust\DH.NStardust.csproj" />
     <ProjectReference Include="..\Stardust.Data\Stardust.Data.csproj" />
-    <ProjectReference Include="..\Stardust\Stardust.csproj" />
   </ItemGroup>
 
 </Project>

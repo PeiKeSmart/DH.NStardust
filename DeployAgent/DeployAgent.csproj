@@ -5,8 +5,8 @@
     <TargetFrameworks>net461;net6.0;net7.0;net8.0</TargetFrameworks>
     <AssemblyTitle>星尘发布</AssemblyTitle>
     <Description>自动下载代码，编译后打包输出并推送发布中心。</Description>
-    <Company>新生命开发团队</Company>
-    <Copyright>©2002-2024 NewLife</Copyright>
+    <Company>湖北登灏科技有限公司</Company>
+    <Copyright>©2020-2024 湖北登灏科技有限公司</Copyright>
     <VersionPrefix>1.0</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
@@ -17,8 +17,6 @@
     <!--<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>-->
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <SignAssembly>True</SignAssembly>
-    <AssemblyOriginatorKeyFile>..\Doc\newlife.snk</AssemblyOriginatorKeyFile>
     <IsPackable>False</IsPackable>
   </PropertyGroup>
 
@@ -30,11 +28,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
+    <ProjectReference Include="..\DH.NStardust\DH.NStardust.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Stardust\Stardust.csproj" />
+    <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
   </ItemGroup>
 
 </Project>

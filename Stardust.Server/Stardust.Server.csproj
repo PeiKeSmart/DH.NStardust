@@ -44,15 +44,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="NewLife.IP" Version="2.2.2024.810" />
-    <PackageReference Include="NewLife.Redis" Version="5.7.2024.801" />
-    <PackageReference Include="NewLife.Remoting.Extensions" Version="3.0.2024.805" />
+    <PackageReference Include="DH.NIP" Version="3.7.2024.819-beta1203" />
+    <PackageReference Include="DH.NRedis" Version="3.7.2024.819-beta1254" />
+    <PackageReference Include="DH.NRemoting.Extensions" Version="3.7.2024.819-beta1413" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DH.NStardust.Extensions\DH.NStardust.Extensions.csproj" />
+    <ProjectReference Include="..\DH.NStardust\DH.NStardust.csproj" />
     <ProjectReference Include="..\Stardust.Data\Stardust.Data.csproj" />
-    <ProjectReference Include="..\Stardust.Extensions\DH.NStardust.Extensions.csproj" />
-    <ProjectReference Include="..\Stardust\Stardust.csproj" />
   </ItemGroup>
 
 </Project>
