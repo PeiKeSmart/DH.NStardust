@@ -1,0 +1,85 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>StarWeb</AssemblyName>
+    <AssemblyTitle>星尘管理平台</AssemblyTitle>
+    <Description>星尘，分布式服务框架。节点管理，监控中心，配置中心，发布中心，注册中心</Description>
+    <Company>新生命开发团队</Company>
+    <Copyright>©2002-2024 NewLife</Copyright>
+    <VersionPrefix>3.0</VersionPrefix>
+    <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
+    <Version>$(VersionPrefix).$(VersionSuffix)</Version>
+    <FileVersion>$(Version)</FileVersion>
+    <AssemblyVersion>$(VersionPrefix).*</AssemblyVersion>
+    <Deterministic>false</Deterministic>
+    <OutputPath>..\Bin\Web</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>1701;1702;NU5104;NETSDK1138;CS7035</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0'">
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <GarbageCollectionAdapatationMode>1</GarbageCollectionAdapatationMode>
+    <!--<PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StackTraceSupport>false</StackTraceSupport>-->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Areas\Configs\Controllers\AppQuoteController.cs" />
+    <Compile Remove="Areas\Configs\Controllers\ConfigOnlineController.cs" />
+    <Compile Remove="Areas\Deployment\Controllers\AppDeployOnlineController.cs" />
+    <Compile Remove="Areas\Deployment\Controllers\AttachmentController.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Stardust.Server\Services\ApolloService.cs" Link="Services\ApolloService.cs" />
+    <Compile Include="..\Stardust.Server\Services\AppDayStatService.cs" Link="Services\AppDayStatService.cs" />
+    <Compile Include="..\Stardust.Server\Services\AppOnlineService.cs" Link="AppOnlineService.cs" />
+    <Compile Include="..\Stardust.Server\Services\ConfigService.cs" Link="Services\ConfigService.cs" />
+    <Compile Include="..\Stardust.Server\Services\NodeStatService.cs" Link="Services\NodeStatService.cs" />
+    <Compile Include="..\Stardust.Server\Services\RedisService.cs" Link="Services\RedisService.cs" />
+    <Compile Include="..\Stardust.Server\Services\TokenService.cs" Link="Services\TokenService.cs" />
+    <Compile Include="..\Stardust.Server\Services\TraceItemStatService.cs" Link="Services\TraceItemStatService.cs" />
+    <Compile Include="..\Stardust.Server\Services\TraceStatService.cs" Link="Services\TraceStatService.cs" />
+    <Compile Include="..\Stardust.Server\Setting.cs" Link="Setting.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DH.NIP" Version="3.7.2024.819-beta1203" />
+    <PackageReference Include="DH.NRedis" Version="3.7.2024.819-beta1254" />
+    <PackageReference Include="DH.NRemoting.Extensions" Version="3.7.2024.819-beta1413" />
+    <PackageReference Include="NewLife.Cube.Core" Version="6.1.2024.807-beta0731" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DH.NStardust.Extensions\DH.NStardust.Extensions.csproj" />
+    <ProjectReference Include="..\DH.NStardust\DH.NStardust.csproj" />
+    <ProjectReference Include="..\Stardust.Data\Stardust.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Remove="Areas\Configs\Views\AppConfig\_List_Toolbar_Custom.cshtml" />
+    <Content Remove="Areas\Deployment\Views\AppDeploy\_List_Toolbar_Custom.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="Areas\Nodes\Views\NodeFramework\_List_Toolbar_Batch.cshtml">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Update="Areas\Registry\Views\AppOnline\_List_Toolbar_Batch.cshtml">
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>
