@@ -1,0 +1,152 @@
+﻿@model IList<TraceDayStat>
+@using Stardust.Data.Monitors
+@using NewLife;
+@using NewLife.Web;
+@using XCode;
+@using XCode.Configuration;
+@using XCode.Membership;
+@using NewLife.Cube;
+@using System.Web;
+@{
+    var fact = ViewBag.Factory as IEntityFactory;
+    var page = ViewBag.Page as Pager;
+    var fields = ViewBag.Fields as IList<FieldItem>;
+    var set = ViewBag.PageSetting as PageSetting;
+    //var provider = ManageProvider.Provider;
+    var appId = page["appId"].ToInt(-1);
+}
+<table class="table table-bordered table-hover table-striped table-condensed">
+    <thead>
+        <tr>
+            @if (set.EnableSelect)
+            {
+                <th class="text-center" style="width:10px;"><input type="checkbox" id="chkAll" title="全选" /></th>
+            }
+            <th class="text-center"><a href="@Html.Raw(page.GetSortUrl("ID"))">编号</a></th>
+            <th class="text-center" style="min-width:80px;"><a href="@Html.Raw(page.GetSortUrl("StatDate"))">统计日期</a></th>
+            @if (appId <= 0)
+            {
+                <th class="text-center"><a href="@Html.Raw(page.GetSortUrl("AppId"))">应用</a></th>
+            }
+            <th class="text-center" title="种类。Api/Http/Db/Mq/Redis/Other"><a href="@Html.Raw(page.GetSortUrl("Type"))">种类</a></th>
+            <th class="text-center" title="操作名。接口名或埋点名"><a href="@Html.Raw(page.GetSortUrl("Name"))">操作名</a></th>
+            <th class="text-center"><a href="@Html.Raw(page.GetSortUrl("Total"))">总次数</a></th>
+            <th class="text-center" title="环比。今天与昨天相比"><a href="@Html.Raw(page.GetSortUrl("RingRate"))">环比</a></th>
+            <th class="text-center"><a href="@Html.Raw(page.GetSortUrl("Errors"))">错误数</a></th>
+            <th class="text-center"><a href="@Html.Raw(page.GetSortUrl("ErrorRate"))">错误率</a></th>
+            <th class="text-center" title="平均耗时。总耗时除以总次数"><a href="@Html.Raw(page.GetSortUrl("Cost"))">平均耗时</a></th>
+            <th class="text-center" title="最大耗时。单位毫秒"><a href="@Html.Raw(page.GetSortUrl("MaxCost"))">最大耗时</a></th>
+            <th class="text-center" title="最小耗时。单位毫秒"><a href="@Html.Raw(page.GetSortUrl("MinCost"))">最小耗时</a></th>
+            <th class="text-center" title="总数值。用户自定义标量"><a href="@Html.Raw(page.GetSortUrl("TotalValue"))">数值</a></th>
+            <th title="跨多系统查看调用链">追踪</th>
+            <th class="text-center" style="min-width:134px;"><a href="@Html.Raw(page.GetSortUrl("CreateTime"))">创建时间</a></th>
+            <th class="text-center" style="min-width:134px;"><a href="@Html.Raw(page.GetSortUrl("UpdateTime"))">更新时间</a></th>
+            @if (this.Has(PermissionFlags.Detail, PermissionFlags.Update, PermissionFlags.Delete))
+            {
+                <th class="text-center">操作</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var entity in Model)
+        {
+            //var url1 = $"appDayStat?appId={entity.AppId}";
+            var url2 = $"/Monitors/traceData?appId={entity.AppId}&date={entity.StatDate:yyyy-MM-dd}&itemId={entity.ItemId}";
+            var url3 = $"/Monitors/traceDayStat?appId={entity.AppId}&itemId={entity.ItemId}";
+            var url4 = url2 + "&minError=1";
+            var color = "";
+            if (entity.Type == "db")
+            {
+                color = "orange";
+            }
+            else if (entity.Type == "mq")
+            {
+                color = "mediumpurple";
+            }
+            else if (entity.Type == "redis")
+            {
+                color = "palevioletred";
+            }
+            var bgcolor = "";
+            if (entity.ErrorRate >= 0.01)
+                bgcolor = "danger";
+            else if (entity.ErrorRate >= 0.001)
+                bgcolor = "warning";
+            <tr class="@bgcolor">
+                @if (set.EnableSelect)
+                {
+                    <td class="text-center"><input type="checkbox" name="keys" value="@entity.ID" /></td>
+                }
+                <td class="text-center">@entity.ID</td>
+                <td class="text-center">@entity.StatDate.ToString("yyyy-MM-dd")</td>
+                @if (appId <= 0)
+                {
+                    <td>@entity.AppName</td>
+                }
+                <td><a href="/Monitors/traceDayStat?appId=@entity.AppId&type=@entity.Type&date=@entity.StatDate.ToString("yyyy-MM-dd")">@entity.Type</a></td>
+                <td style="max-width:400px;overflow:hidden;white-space: nowrap;text-overflow: ellipsis;"><a href="@url3" title="该应用操作在最近一段时间内的监控图表" style="color: @color">@entity.Name</a></td>
+                <td class="text-right"><a href="@url2" title="该应用操作在该日的所有监控追踪数据">@entity.Total.ToString("n0")</a></td>
+                <td class="text-right">@entity.RingRate.ToString("p2")</td>
+                <td class="text-right">
+                    @if (entity.Errors > 0)
+                    {
+                        <a href="@url4" title="查看具体出错的追踪数据">@entity.Errors.ToString("n0")</a>
+                    }
+                    else
+                    {
+                        <text>@entity.Errors.ToString("n0")</text>
+                    }
+                </td>
+                <td class="text-right">@entity.ErrorRate.ToString("p2")</td>
+                <td class="text-right">@entity.Cost.ToString("n0")</td>
+                <td class="text-right">@entity.MaxCost.ToString("n0")</td>
+                <td class="text-right">@entity.MinCost.ToString("n0")</td>
+                <td class="text-right">@entity.TotalValue.ToString("n0")</td>
+                <td><a href="/Monitors/TraceDayStat/Trace?id=@entity.ID" title="跨多系统查看调用链">追踪</a></td>
+                <td class="text-center">@entity.CreateTime.ToFullString("")</td>
+                <td class="text-center">@entity.UpdateTime.ToFullString("")</td>
+                @if (this.Has(PermissionFlags.Detail, PermissionFlags.Update, PermissionFlags.Delete))
+                {
+                    <td class="text-center">
+                        @await Html.PartialAsync("_List_Data_Action", (Object)entity)
+                    </td>
+                }
+            </tr>
+        }
+        @if (page.State is TraceDayStat)
+        {
+            var entity = page.State as TraceDayStat;
+            entity.Valid(false);
+            <tr>
+                @if (set.EnableSelect)
+                {
+                    <td></td>
+                }
+                <td class="text-center">总计</td>
+                <td></td>
+                @if (appId <= 0)
+                {
+                    <td></td>
+                }
+                <td></td>
+                <td></td>
+                <td class="text-right">@entity.Total.ToString("n0")</td>
+                <td class="text-right">@entity.RingRate.ToString("p2")</td>
+                <td class="text-right">@entity.Errors.ToString("n0")</td>
+                <td class="text-right">@entity.ErrorRate.ToString("p2")</td>
+                <td class="text-right">@entity.Cost.ToString("n0")</td>
+                <td class="text-right">@entity.MaxCost.ToString("n0")</td>
+                <td class="text-right">@entity.MinCost.ToString("n0")</td>
+                <td class="text-right">@entity.TotalValue.ToString("n0")</td>
+                <td></td>
+                <td></td>
+                <td></td>
+
+                @if (this.Has(PermissionFlags.Detail, PermissionFlags.Update, PermissionFlags.Delete))
+                {
+                    <td></td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>

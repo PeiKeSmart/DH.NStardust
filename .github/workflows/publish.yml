@@ -1,0 +1,32 @@
+name: publish
+
+on:
+  push:
+    tags: [ v* ]
+  workflow_dispatch:
+
+jobs:
+  build-publish:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup dotNET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: |
+          6.0.x
+          7.0.x
+          8.x
+    - name: Build
+      run: |
+        dotnet build -c Release
+    - name: Pack
+      run: |
+        dotnet pack --no-build -o out DH.NStardust\DH.NStardust.csproj
+        dotnet pack --no-build -o out DH.NStardust.Extensions\DH.NStardust.Extensions.csproj
+
+    - name: Publish
+      run: |
+        dotnet nuget push .\out\*.nupkg --skip-duplicate --source https://nuget.pkg.github.com/PeiKeSmart/index.json --api-key ${{ github.token }}
+        dotnet nuget push .\out\*.nupkg --skip-duplicate --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.nugetKey }}

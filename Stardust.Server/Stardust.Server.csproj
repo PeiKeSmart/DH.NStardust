@@ -1,0 +1,58 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AssemblyName>StarServer</AssemblyName>
+    <AssemblyTitle>星尘服务平台</AssemblyTitle>
+    <Description>星尘，分布式服务框架。节点管理，监控中心，配置中心，发布中心，注册中心</Description>
+    <Company>新生命开发团队</Company>
+    <Copyright>©2002-2024 NewLife</Copyright>
+    <VersionPrefix>3.0</VersionPrefix>
+    <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
+    <Version>$(VersionPrefix).$(VersionSuffix)</Version>
+    <FileVersion>$(Version)</FileVersion>
+    <AssemblyVersion>$(VersionPrefix).*</AssemblyVersion>
+    <Deterministic>false</Deterministic>
+    <OutputPath>..\Bin\Server</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>1701;1702;NU5104;NETSDK1138;CS7035</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0'">
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <GarbageCollectionAdapatationMode>1</GarbageCollectionAdapatationMode>
+    <!--<PublishAot>true</PublishAot>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <StackTraceSupport>false</StackTraceSupport>-->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Common\**" />
+    <Content Remove="Common\**" />
+    <EmbeddedResource Remove="Common\**" />
+    <None Remove="Common\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Controllers\DustController.cs" />
+    <Compile Remove="Models\CommandInModel.cs" />
+    <Compile Remove="Services\CacheFileProvider.cs" />
+    <Compile Remove="StarService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NewLife.IP" Version="2.2.2024.810" />
+    <PackageReference Include="NewLife.Redis" Version="5.7.2024.801" />
+    <PackageReference Include="NewLife.Remoting.Extensions" Version="3.0.2024.805" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stardust.Data\Stardust.Data.csproj" />
+    <ProjectReference Include="..\Stardust.Extensions\DH.NStardust.Extensions.csproj" />
+    <ProjectReference Include="..\Stardust\Stardust.csproj" />
+  </ItemGroup>
+
+</Project>

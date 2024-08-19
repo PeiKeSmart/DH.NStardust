@@ -1,0 +1,31 @@
+﻿@model TraceViewModel
+@using Stardust.Data.Monitors
+@using NewLife;
+@using NewLife.Web;
+@using XCode;
+@using XCode.Configuration;
+@using XCode.Membership;
+@using NewLife.Cube;
+@using System.Web;
+@using Stardust.Web.Models;
+@{
+    //Layout = NewLife.Cube.Setting.Current.Layout;
+
+    var page = Model.Page;
+    var list = Model.Data;
+    var traceId = page["id"];
+}
+<div class="table-responsive">
+    @if (!traceId.IsNullOrEmpty())
+    {
+        await Html.RenderPartialAsync("_Nav", traceId);
+    }
+@*    @if (!traceId.IsNullOrEmpty() && list.Select(e => e.AppId).Distinct().Count() > 1)
+    {
+        await Html.RenderPartialAsync("_AppChain", list);
+    }*@
+    @if (list.Count > 0)
+    {
+        await Html.RenderPartialAsync("_CallChain", list);
+    }
+</div>
