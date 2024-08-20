@@ -41,7 +41,7 @@
 
   <ItemGroup>
     <PackageReference Include="DH.NAgent" Version="3.7.2024.819-beta1401" />
-    <PackageReference Include="DH.NRemoting" Version="3.7.2024.820-beta0352" />
+    <PackageReference Include="DH.NRemoting" Version="3.7.2024.820" />
   </ItemGroup>
 
   <ItemGroup>
