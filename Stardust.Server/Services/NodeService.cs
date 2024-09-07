@@ -7,6 +7,7 @@ using NewLife.Remoting.Models;
 using NewLife.Security;
 using NewLife.Serialization;
 using NewLife.Web;
+using Stardust.Data;
 using Stardust.Data.Nodes;
 using Stardust.Data.Platform;
 using Stardust.Models;

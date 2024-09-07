@@ -115,7 +115,7 @@ public class ZipDeploy
                 //    }
                 //    WriteLog("参数路径补全 {0}", args[i]);
                 //}
-
+                
                 // 其它参数全要，支持 urls=http://*:8000
                 gs[i] = args[i];
             }
