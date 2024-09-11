@@ -38,19 +38,19 @@ namespace StarGateway.Http
         /// <summary>从数据包中读取消息</summary>
         /// <param name="pk"></param>
         /// <returns>是否成功</returns>
-        public virtual Boolean Read(Packet pk)
+        public virtual Boolean Read(IPacket pk)
         {
             // 读取请求方法
-            var p = pk.Slice(0, 16).IndexOf(new[] { (Byte)' ' });
+            var p = ((Packet)pk.Slice(0, 16)).IndexOf(new[] { (Byte)' ' });
             if (p < 0) return false;
 
             Method = pk.Slice(0, p).ToStr();
 
-            p = pk.IndexOf(NewLine);
+            p = ((Packet)pk).IndexOf(NewLine);
             if (p < 0) return false;
 
-            Header = pk.Slice(0, p);
-            Body = pk.Slice(p + 4);
+            Header = ((Packet)pk).Slice(0, p);
+            Body = ((Packet)pk).Slice(p + 4);
 
             //var isGet = pk.Count >= 4 && pk[0] == 'G' && pk[1] == 'E' && pk[2] == 'T' && pk[3] == ' ';
             //var isPost = pk.Count >= 5 && pk[0] == 'P' && pk[1] == 'O' && pk[2] == 'S' && pk[3] == 'T' && pk[4] == ' ';

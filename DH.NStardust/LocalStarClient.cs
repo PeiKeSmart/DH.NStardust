@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using NewLife;
+using NewLife.Data;
 using NewLife.Http;
 using NewLife.Log;
 using NewLife.Messaging;
@@ -483,7 +484,7 @@ public class LocalStarClient
             var rs = new DefaultMessage();
             IPEndPoint? ep = null;
             buf = udp.Receive(ref ep);
-            if (buf != null && rs.Read(buf))
+            if (buf != null && rs.Read(new Packet(buf)))
             {
                 var msg = encoder.Decode(rs);
                 if (msg != null && msg.Data != null)
