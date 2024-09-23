@@ -20,10 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NRedis" Version="3.8.2024.920-beta0130" />
-    <PackageReference Include="DH.UnitTest" Version="1.0.2024.920-beta0125" />
+    <PackageReference Include="DH.NRedis" Version="3.91.2024.923-beta0226" />
+    <PackageReference Include="DH.UnitTest" Version="1.0.2024.923-beta0152" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-    <PackageReference Include="xunit" Version="2.9.0" />
+    <PackageReference Include="xunit" Version="2.9.1" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
