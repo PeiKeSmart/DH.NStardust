@@ -67,6 +67,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Remove="Areas\Deployment\Views\AppDeployNode\_Form_Body.cshtml" />
     <Content Remove="Areas\Configs\Views\AppConfig\_List_Toolbar_Custom.cshtml" />
     <Content Remove="Areas\Deployment\Views\AppDeploy\_List_Toolbar_Custom.cshtml" />
   </ItemGroup>
