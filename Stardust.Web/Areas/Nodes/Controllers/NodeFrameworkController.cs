@@ -102,7 +102,7 @@ public class NodeFrameworkController : EntityController<Node>
         if (ver.IsNullOrEmpty()) throw new ArgumentNullException(nameof(ver));
 
         ver = ver.Trim();
- 
+
         var bf = new BatchFinder<Int32, Node>();
         bf.Add(SelectKeys.Select(e => e.ToInt()));
 
