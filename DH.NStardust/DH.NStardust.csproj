@@ -112,7 +112,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="DH.NRemoting" Version="3.91.2024.1014-beta0111" />
+    <PackageReference Include="DH.NRemoting" Version="3.91.2024.1016-beta0106" />
   </ItemGroup>
 
 </Project>
