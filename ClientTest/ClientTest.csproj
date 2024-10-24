@@ -20,7 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NRedis" Version="3.91.2024.1015-beta1006" />
+    <PackageReference Include="DH.NRedis" Version="3.91.2024.1021-beta0734" />
     <PackageReference Include="DH.UnitTest" Version="1.0.2024.1013-beta0839" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
