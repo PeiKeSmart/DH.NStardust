@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+
 using NewLife;
 using NewLife.Caching;
 using NewLife.Common;
@@ -14,6 +15,7 @@ using NewLife.Remoting.Clients;
 using NewLife.Remoting.Models;
 using NewLife.Security;
 using NewLife.Threading;
+
 using Stardust.Configs;
 using Stardust.Models;
 using Stardust.Monitors;
@@ -98,7 +100,9 @@ public class StarFactory : DisposeBase
         _tracer.TryDispose();
         _config.TryDispose();
     }
+    #endregion
 
+    #region 初始化注册
     private void Init()
     {
         XTrace.WriteLine("正在初始化星尘……");
@@ -243,18 +247,21 @@ public class StarFactory : DisposeBase
         XTrace.WriteLine("星尘分布式服务 Server={0} AppId={1} ClientId={2}", Server, AppId, ClientId);
 
         Valid();
+    }
 
-        var ioc = ObjectContainer.Current;
-        ioc.AddSingleton(this);
-        ioc.AddSingleton(p => Tracer ?? DefaultTracer.Instance ?? (DefaultTracer.Instance ??= new DefaultTracer()));
-        //ioc.AddSingleton(p => Config);
-        ioc.AddSingleton(p => Service!);
+    /// <summary>注册到对象容器</summary>
+    /// <param name="container"></param>
+    public void Register(IObjectContainer container)
+    {
+        container.AddSingleton(this);
+        container.AddSingleton(p => Tracer ?? DefaultTracer.Instance ?? (DefaultTracer.Instance ??= new DefaultTracer()));
+        container.AddSingleton(p => Service!);
 
         // 替换为混合配置提供者，优先本地配置
-        ioc.AddSingleton(p => GetConfig()!);
+        container.AddSingleton(p => GetConfig()!);
 
-        ioc.TryAddSingleton(XTrace.Log);
-        ioc.TryAddSingleton(typeof(ICacheProvider), typeof(CacheProvider));
+        container.TryAddSingleton(XTrace.Log);
+        container.TryAddSingleton(typeof(ICacheProvider), typeof(CacheProvider));
     }
 
     [MemberNotNullWhen(true, nameof(_client))]
@@ -396,7 +403,7 @@ public class StarFactory : DisposeBase
 
     /// <summary>获取复合配置提供者</summary>
     /// <returns></returns>
-    public IConfigProvider? GetConfig() => _configProvider ?? Config;
+    public IConfigProvider? GetConfig() => _configProvider ?? Config ?? JsonConfigProvider.LoadAppSettings();
     #endregion
 
     #region 注册中心
@@ -453,9 +460,9 @@ public class StarFactory : DisposeBase
     /// <param name="nodeCode"></param>
     /// <param name="command"></param>
     /// <param name="argument"></param>
+    /// <param name="startTime"></param>
     /// <param name="expire"></param>
     /// <param name="timeout"></param>
-    /// <param name="startTime"></param>
     /// <returns></returns>
     public async Task<Int32> SendNodeCommand(String nodeCode, String command, String? argument = null, Int32 startTime = 0, Int32 expire = 3600, Int32 timeout = 5)
     {
