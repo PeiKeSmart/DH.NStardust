@@ -50,10 +50,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NIP" Version="3.91.2024.1013-beta0940" />
-    <PackageReference Include="DH.NRedis" Version="3.91.2024.1021-beta0734" />
-    <PackageReference Include="DH.NRemoting.Extensions" Version="3.91.2024.1031" />
-    <PackageReference Include="DH.NCube.Core" Version="3.91.2024.1026-beta0823" />
+    <PackageReference Include="DH.NIP" Version="3.91.2024.1101-beta0212" />
+    <PackageReference Include="DH.NRedis" Version="3.91.2024.1101-beta0242" />
+    <PackageReference Include="DH.NRemoting.Extensions" Version="3.91.2024.1101-beta0219" />
+    <PackageReference Include="DH.NCube.Core" Version="3.91.2024.1101-beta0249" />
   </ItemGroup>
 
   <ItemGroup>
