@@ -155,6 +155,28 @@ public class AppDeployNodeController : EntityController<AppDeployNode>
         return JsonRefresh($"在节点[{dn.NodeName}]上对应用[{deployName}]执行[{act}]操作", 1);
     }
 
+    /// <summary>执行操作</summary>
+    /// <param name="act"></param>
+    /// <param name="id"></param>
+    /// <param name="Pwd"></param>
+    /// <returns></returns>
+    [EntityAuthorize(PermissionFlags.Update)]
+    [HttpPost]
+    public async Task<ActionResult> OtherOperate(String act, Int32 id, String Pwd)
+    {
+        if (Pwd.IsNullOrWhiteSpace()) return Json(500, "参数为空");
+        if (Pwd != DHSetting.Current.ApiPwd) return Json(500, "参数错误");
+
+        var dn = AppDeployNode.FindById(id);
+        if (dn == null || dn.Node == null || dn.Deploy == null) return Json(500, $"[{id}]不存在");
+
+        var deployName = dn.DeployName;
+        if (deployName.IsNullOrEmpty()) deployName = dn.Deploy?.Name;
+        await _deployService.Control(dn.Deploy, dn, act, UserHost, 0);
+
+        return JsonRefresh($"在节点[{dn.NodeName}]上对应用[{deployName}]执行[{act}]操作", 1);
+    }
+
     /// <summary>批量执行操作</summary>
     /// <param name="act"></param>
     /// <returns></returns>
