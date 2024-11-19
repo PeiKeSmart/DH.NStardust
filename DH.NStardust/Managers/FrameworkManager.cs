@@ -100,56 +100,25 @@ public class FrameworkManager
             nr.InstallNet48();
 #endif
         }
-        else if (ver.StartsWithIgnoreCase("6."))
-        {
-            var kind = "";
-            var p = ver.IndexOf('-');
-            if (p > 0)
-            {
-                kind = ver.Substring(p + 1);
-                ver = ver.Substring(0, p);
-            }
-
-            nr.InstallNet6(ver, kind);
-        }
-        else if (ver.StartsWithIgnoreCase("7."))
-        {
-            var kind = "";
-            var p = ver.IndexOf('-');
-            if (p > 0)
-            {
-                kind = ver.Substring(p + 1);
-                ver = ver.Substring(0, p);
-            }
-
-            nr.InstallNet7(ver, kind);
-        }
-        else if (ver.StartsWithIgnoreCase("8."))
-        {
-            var kind = "";
-            var p = ver.IndexOf('-');
-            if (p > 0)
-            {
-                kind = ver.Substring(p + 1);
-                ver = ver.Substring(0, p);
-            }
-
-            nr.InstallNet8(ver, kind);
-        }
-        else if (ver.StartsWithIgnoreCase("9."))
-        {
-            var kind = "";
-            var p = ver.IndexOf('-');
-            if (p > 0)
-            {
-                kind = ver.Substring(p + 1);
-                ver = ver.Substring(0, p);
-            }
-
-            nr.InstallNet9(ver, kind);
-        }
         else
-            throw new Exception($"不支持的.NET版本[{ver}]");
+        {
+            // 支持标准dotNet版本安装
+            var pv = ver.IndexOf('.');
+            if (pv > 0 && ver.Substring(0, pv).ToInt() >= 5)
+            {
+                var kind = "";
+                var p = ver.IndexOf('-');
+                if (p > 0)
+                {
+                    kind = ver.Substring(p + 1);
+                    ver = ver.Substring(0, p);
+                }
+
+                nr.InstallNet("v" + ver.Substring(0, pv), ver, kind);
+            }
+            else
+                throw new Exception($"不支持的.NET版本[{ver}]");
+        }
 
         CheckPing();
 
@@ -174,11 +143,11 @@ public class FrameworkManager
 
             if (Runtime.Linux)
             {
-                var runtimes = new String[] { "Microsoft.NETCore.App", "Microsoft.AspNetCore.App" };
-                var rootDir = "/usr/share/dotnet/shared";
-                foreach (var runtime in runtimes)
+                var rootDir = "/usr/share/dotnet/";
+                var paths = new String[] { "host/fxr", "shared/Microsoft.NETCore.App", "shared/Microsoft.AspNetCore.App" };
+                foreach (var item in paths)
                 {
-                    var dir = rootDir.CombinePath(runtime, currentVer);
+                    var dir = rootDir.CombinePath(item, currentVer);
                     if (Directory.Exists(dir))
                     {
                         //有可能被占用
@@ -186,11 +155,11 @@ public class FrameworkManager
                         {
                             Directory.Delete(dir, true);
                             deleted = true;
-                            XTrace.Log.Info($"{runtime} {currentVer} 已删除");
+                            WriteLog($"{item} {currentVer} 已删除");
                         }
                         catch (Exception ex)
                         {
-                            XTrace.Log.Info($"卸载时出现异常 {ex.Message}");
+                            WriteLog($"卸载时出现异常 {ex.Message}");
                         }
                     }
                 }
@@ -208,23 +177,23 @@ public class FrameworkManager
                         {
                             Directory.Delete(dir, true);
                             deleted = true;
-                            XTrace.Log.Info($"{runtime} {currentVer} 已删除");
+                            WriteLog($"{runtime} {currentVer} 已删除");
                         }
                         catch (Exception ex)
                         {
-                            XTrace.Log.Info($"卸载时出现异常 {ex.Message}");
-                        }                        
+                            WriteLog($"卸载时出现异常 {ex.Message}");
+                        }
                     }
                 }
             }
             else
             {
-                XTrace.Log.Info("暂不支持当前OS卸载");
+                WriteLog("暂不支持当前OS卸载");
                 throw new Exception("暂不支持当前OS卸载");
             }
         }
 
-        XTrace.Log.Info("{0} 卸载成功", model.Version);
+        WriteLog("{0} 卸载成功", model.Version);
         CheckPing();
 
         return deleted ? "卸载成功" : "卸载失败";
@@ -246,4 +215,25 @@ public class FrameworkManager
             });
         }
     }
+
+    #region 日志
+    /// <summary>日志</summary>
+    public ILog Log { get; set; } = Logger.Null;
+
+    /// <summary>写日志</summary>
+    /// <param name="format"></param>
+    /// <param name="args"></param>
+    public void WriteLog(String format, params Object?[] args)
+    {
+        Log?.Info($"[FrameworkManager]{format}", args);
+
+        var msg = (args == null || args.Length == 0) ? format : String.Format(format, args);
+        DefaultSpan.Current?.AppendTag(msg);
+
+        if (format.Contains("错误") || format.Contains("失败"))
+            _eventProvider?.WriteErrorEvent(nameof(FrameworkManager), msg);
+        else
+            _eventProvider?.WriteInfoEvent(nameof(FrameworkManager), msg);
+    }
+    #endregion
 }
