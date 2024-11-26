@@ -160,7 +160,7 @@ public class AppDeployNodeController : EntityController<AppDeployNode>
     /// <param name="id"></param>
     /// <param name="Pwd"></param>
     /// <returns></returns>
-    [EntityAuthorize(PermissionFlags.Update)]
+    //[EntityAuthorize(PermissionFlags.Update)]
     [HttpPost]
     public async Task<ActionResult> OtherOperate(String act, Int32 id, String Pwd)
     {
