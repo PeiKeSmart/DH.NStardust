@@ -108,7 +108,6 @@ internal class MyStarClient : StarClient
         }
         else
         {
-            // 重新拉起进程
             this.WriteInfoEvent("Upgrade", "强制更新完成，准备拉起新进程！PID=" + pid);
 
             // 重新拉起进程，重启服务，否则采取拉起进程的方式
