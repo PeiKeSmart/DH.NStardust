@@ -45,12 +45,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\DH.NAgent\DH.NAgent\DH.NAgent.csproj" />
     <ProjectReference Include="..\DH.NStardust\DH.NStardust.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Managers\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DH.NAgent" Version="4.0.2024.1224-beta0728" />
   </ItemGroup>
 
 </Project>
