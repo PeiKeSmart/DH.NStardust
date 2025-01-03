@@ -11,6 +11,8 @@ using NewLife.Caching;
 using NewLife.Configuration;
 using NewLife.Log;
 using NewLife.Reflection;
+using NewLife.Remoting.Clients;
+
 using Stardust;
 using Stardust.Extensions;
 
@@ -44,6 +46,8 @@ public static class StarFactoryExtensions
         services.AddSingleton(p => star.Tracer ?? DefaultTracer.Instance ?? (DefaultTracer.Instance ??= new DefaultTracer()));
         //services.AddSingleton(p => star.Config);
         services.AddSingleton(p => star.Service!);
+        services.AddSingleton(p => (star.Service as IEventProvider)!);
+        services.AddSingleton(p => (star.Service as ICommandClient)!);
 
         // 替换为混合配置提供者，优先本地配置
         //services.Replace(new ServiceDescriptor(typeof(IConfigProvider), p => star.Config, ServiceLifetime.Singleton));
