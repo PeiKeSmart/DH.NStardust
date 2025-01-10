@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+
+using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.ViewModels;
 using NewLife.Web;
