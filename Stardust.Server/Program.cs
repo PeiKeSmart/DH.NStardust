@@ -1,7 +1,4 @@
-﻿using System;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Hosting;
-using NewLife.Log;
+﻿using NewLife.Log;
 
 namespace Stardust.Server;
 
