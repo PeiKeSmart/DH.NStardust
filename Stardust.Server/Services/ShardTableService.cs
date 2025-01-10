@@ -121,6 +121,12 @@ public class ShardTableService : IHostedService
                             else
                                 dal.Execute($"Truncate Table {name}");
                             //dal.Session.Truncate(name);
+
+                            // 清理数据后，设置为压缩表
+                            if (dal.DbType == DatabaseType.MySql)
+                            {
+                                dal.Execute($"Alter Table {name} ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4");
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -137,6 +143,12 @@ public class ShardTableService : IHostedService
                             else
                                 dal.Execute($"Truncate Table {name}");
                             //dal.Session.Truncate(name);
+
+                            // 清理数据后，设置为压缩表
+                            if (dal.DbType == DatabaseType.MySql)
+                            {
+                                dal.Execute($"Alter Table {name} ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4");
+                            }
                         }
                         catch (Exception ex)
                         {
