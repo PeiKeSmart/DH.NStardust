@@ -85,11 +85,11 @@ public class ShardTableService : IHostedService
                 {
                     foreach (var dt in ts)
                     {
-                        dal.Execute($"Alter Table {dt.TableName} ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4");
+                        if (!tnames.Any(e => e.EqualIgnoreCase(dt.TableName, dt.Name)))
+                            dal.Execute($"Alter Table {dt.TableName} ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=4");
                     }
                 }
             }
-
 
             // 如果保留时间超过了31天，则使用删除功能清理历史数据，否则使用truncate
             if (days > 31)
