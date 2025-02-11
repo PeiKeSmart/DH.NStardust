@@ -119,8 +119,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="DH.NCore" Version="4.1.2025.205-beta0355" />
-    <PackageReference Include="DH.NRemoting" Version="4.0.2025.205-beta0548" />
+    <PackageReference Include="DH.NCore" Version="4.1.2025.211-beta0620" />
+    <PackageReference Include="DH.NRemoting" Version="4.0.2025.207-beta0706" />
   </ItemGroup>
 
 </Project>
