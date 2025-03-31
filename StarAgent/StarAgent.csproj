@@ -53,7 +53,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NAgent" Version="4.11.2025.314-beta1105" />
+    <PackageReference Include="DH.NAgent" Version="4.11.2025.331-beta0327" />
   </ItemGroup>
 
 </Project>
