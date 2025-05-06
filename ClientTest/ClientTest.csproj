@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <PackageReference Include="DH.NRedis" Version="4.11.2025.428-beta0235" />
-    <PackageReference Include="DH.UnitTest" Version="4.11.2025.412" />
+    <PackageReference Include="DH.UnitTest" Version="4.12.2025.506" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.0.2">
