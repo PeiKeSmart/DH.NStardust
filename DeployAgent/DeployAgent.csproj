@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
-    <AssemblyName>DH.StardDploy</AssemblyName>
+    <AssemblyName>dhstardeploy</AssemblyName>
     <AssemblyTitle>星尘发布</AssemblyTitle>
     <Description>自动下载代码，编译后打包输出并推送发布中心。</Description>
     <Company>湖北登灏科技有限公司</Company>
@@ -20,7 +20,7 @@
     <LangVersion>latest</LangVersion>
     <IsPackable>True</IsPackable>
     <PackAsTool>True</PackAsTool>
-    <ToolCommandName>stardeploy</ToolCommandName>
+    <ToolCommandName>dhstardeploy</ToolCommandName>
   </PropertyGroup>
 
   <PropertyGroup>
