@@ -1,10 +1,10 @@
-﻿using DeployAgent;
+﻿using System.Reflection;
+using System.Xml;
+using DeployAgent;
 using DeployAgent.Commands;
-
 using NewLife;
 using NewLife.Log;
 using NewLife.Model;
-
 using Stardust;
 
 // 启用控制台日志，拦截所有异常
@@ -14,21 +14,26 @@ XTrace.UseConsole();
 var services = ObjectContainer.Current;
 //services.AddSingleton(XTrace.Log);
 
-//var asm = Assembly.GetEntryAssembly();
-//Console.WriteLine("星尘发布 StarDeploy v{0}", asm.GetName().Version);
-//Console.WriteLine(asm.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description);
-//Console.WriteLine("{0}", Environment.OSVersion);
-//Console.WriteLine();
+var asm = Assembly.GetEntryAssembly();
+Console.WriteLine("星尘发布 \e[31;1mstardeploy\e[0m v{0}", asm.GetName().Version);
+Console.WriteLine(asm.GetCustomAttribute<AssemblyDescriptionAttribute>()?.Description);
+Console.WriteLine("\e[34;1m{0}\e[0m", Environment.OSVersion);
+Console.WriteLine();
+
+var cmds = new Dictionary<String, ICommand>
+{
+    { "pack", new PackCommand() },
+    { "deploy", new DeployCommand() }
+};
+Console.WriteLine("可用命令：");
+foreach (var item in cmds)
+{
+    Console.WriteLine("\t{0,-8}\t{1}", item.Key, item.Value.GetType().FullName);
+}
 
 var cmd = args?.FirstOrDefault();
 if (args != null && !cmd.IsNullOrEmpty())
 {
-    var cmds = new Dictionary<String, ICommand>
-    {
-        { "pack", new PackCommand() },
-        { "deploy", new DeployCommand() }
-    };
-
     if (cmds.TryGetValue(cmd, out var command))
     {
         // 执行命令
