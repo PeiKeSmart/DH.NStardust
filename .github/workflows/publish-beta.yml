@@ -6,6 +6,7 @@ on:
     paths:
         - 'DH.NStardust/**'
         - 'DH.NStardust.Extensions/**'
+        - 'DeployAgent/**'
   workflow_dispatch:
 
 jobs:
@@ -31,6 +32,7 @@ jobs:
       run: |
         dotnet pack --no-build --version-suffix ${{ env.VERSION }} -o out DH.NStardust\DH.NStardust.csproj
         dotnet pack --no-build --version-suffix ${{ env.VERSION }} -o out DH.NStardust.Extensions\DH.NStardust.Extensions.csproj
+        dotnet pack --no-build --version-suffix ${{ env.VERSION }} -o out DeployAgent\DeployAgent.csproj
 
     - name: Publish
       run: |
