@@ -18,7 +18,7 @@
     <!--<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>-->
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <IsPackable>False</IsPackable>
+    <IsPackable>True</IsPackable>
     <PackAsTool>True</PackAsTool>
     <ToolCommandName>stardeploy</ToolCommandName>
   </PropertyGroup>
