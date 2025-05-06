@@ -138,11 +138,13 @@ public class ServiceController : DisposeBase
             using var span = Tracer?.NewSpan("StartService", service);
             try
             {
-                Process? p;
+                Process p;
                 var isZip = src.EndsWithIgnoreCase(".zip");
 
                 // 在环境变量中设置BasePath，不用担心影响当前进程，因为PathHelper仅读取一次
                 //Environment.SetEnvironmentVariable("BasePath", workDir);
+                if (DeployInfo != null && !DeployInfo.Name.IsNullOrEmpty())
+                    Environment.SetEnvironmentVariable("StarAppId", DeployInfo.Name);
 
                 // 工作模式
                 switch (service.Mode)
