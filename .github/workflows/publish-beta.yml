@@ -2,7 +2,7 @@ name: publish-beta
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main,dev ]
     paths:
         - 'DH.NStardust/**'
         - 'DH.NStardust.Extensions/**'
@@ -30,7 +30,6 @@ jobs:
         dotnet pack --version-suffix ${{ env.VERSION }} -c Release -o out DH.NStardust\DH.NStardust.csproj
         dotnet pack --version-suffix ${{ env.VERSION }} -c Release -o out DH.NStardust.Extensions\DH.NStardust.Extensions.csproj
         dotnet pack --version-suffix ${{ env.VERSION }} -c Release -o out DeployAgent\DeployAgent.csproj
-
     - name: Publish
       run: |
         #dotnet nuget push .\out\*.nupkg --skip-duplicate --source https://nuget.pkg.github.com/PeiKeSmart/index.json --api-key ${{ github.token }}
