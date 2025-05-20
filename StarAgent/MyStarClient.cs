@@ -1,11 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
+
 using NewLife;
 using NewLife.Agent;
 using NewLife.Log;
+using NewLife.Model;
 using NewLife.Remoting.Clients;
 using NewLife.Remoting.Models;
 using NewLife.Serialization;
+
 using Stardust;
 using Stardust.Models;
 
@@ -35,6 +38,22 @@ internal class MyStarClient : StarClient
 
             return false;
         }
+    }
+    #endregion
+
+    #region 方法
+    protected override void OnInit()
+    {
+        var provider = ServiceProvider ??= ObjectContainer.Provider;
+
+        // 找到容器，注册默认的模型实现，供后续InvokeAsync时自动创建正确的模型对象
+        var container = ModelExtension.GetService<IObjectContainer>(provider) ?? ObjectContainer.Current;
+        if (container != null)
+        {
+            container.AddTransient<IPingResponse, MyPingResponse>();
+        }
+
+        base.OnInit();
     }
     #endregion
 
