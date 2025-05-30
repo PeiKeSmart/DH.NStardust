@@ -1,5 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Text.Json;
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+
 using NewLife;
 using NewLife.Caching;
 using NewLife.Log;
@@ -7,11 +11,14 @@ using NewLife.Remoting;
 using NewLife.Remoting.Extensions;
 using NewLife.Remoting.Models;
 using NewLife.Web;
+
 using Stardust.Data.Deployment;
 using Stardust.Data.Nodes;
 using Stardust.Models;
 using Stardust.Server.Services;
+
 using XCode;
+
 using TokenService = Stardust.Server.Services.TokenService;
 using WebSocket = System.Net.WebSockets.WebSocket;
 
@@ -25,16 +32,18 @@ public class NodeController : BaseController
     private String _clientId;
     private readonly ICacheProvider _cacheProvider;
     private readonly ITracer _tracer;
+    private readonly IOptions<JsonOptions> _jsonOptions;
     private readonly NodeService _nodeService;
     private readonly TokenService _tokenService;
     private readonly DeployService _deployService;
     private readonly NodeSessionManager _sessionManager;
     private readonly StarServerSetting _setting;
 
-    public NodeController(NodeService nodeService, TokenService tokenService, DeployService deployService, NodeSessionManager sessionManager, StarServerSetting setting, ICacheProvider cacheProvider, IServiceProvider serviceProvider, ITracer tracer) : base(serviceProvider)
+    public NodeController(NodeService nodeService, TokenService tokenService, DeployService deployService, NodeSessionManager sessionManager, StarServerSetting setting, ICacheProvider cacheProvider, IServiceProvider serviceProvider, ITracer tracer, IOptions<JsonOptions> jsonOptions) : base(serviceProvider)
     {
         _cacheProvider = cacheProvider;
         _tracer = tracer;
+        _jsonOptions = jsonOptions;
         _nodeService = nodeService;
         _tokenService = tokenService;
         _deployService = deployService;
@@ -67,8 +76,16 @@ public class NodeController : BaseController
     #region 登录注销
     [AllowAnonymous]
     [HttpPost(nameof(Login))]
-    public LoginResponse Login(LoginInfo inf)
+    public LoginResponse Login(JsonElement data)
     {
+        // 由于客户端的多样性，这里需要手工控制序列化。某些客户端的节点信息跟密钥信息在同一层级。
+        var options = _jsonOptions.Value.JsonSerializerOptions;
+        var inf = data.Deserialize<LoginInfo>(options);
+        if (inf.Node == null || inf.Node.UUID.IsNullOrEmpty() && inf.Node.MachineGuid.IsNullOrEmpty() && inf.Node.Macs.IsNullOrEmpty())
+        {
+            inf.Node = data.Deserialize<NodeInfo>(options);
+        }
+
         var ip = UserHost;
         var code = inf.Code;
         var node = Node.FindByCode(code, true);
