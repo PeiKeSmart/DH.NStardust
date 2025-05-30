@@ -1,13 +1,20 @@
 ﻿using System.ComponentModel;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+
 using NewLife;
 using NewLife.Cube;
+using NewLife.Cube.Extensions;
 using NewLife.Cube.ViewModels;
 using NewLife.Web;
+
 using Stardust.Data.Nodes;
+
 using XCode.Membership;
+
 using static Stardust.Data.Nodes.NodeOnline;
+
 using Node = Stardust.Data.Nodes.Node;
 
 namespace Stardust.Web.Areas.Nodes.Controllers;
@@ -24,7 +31,7 @@ public class NodeOnlineController : ReadOnlyEntityController<NodeOnline>
 
         var list = ListFields;
         list.Clear();
-        var allows = new[] { "ID", "ProjectName", "Name", "Category", "ProductCode", "CityName", "Address", "PingCount", "WebSocket", "Version", "OSKind", "IP", "AvailableMemory", "MemoryUsed", "AvailableFreeSpace", "SpaceUsed", "CpuRate", "ProcessCount", __.Signal, __.Offset, "UplinkSpeed", "DownlinkSpeed", "LocalTime", "CreateTime", "UpdateTime", "UpdateIP" };
+        var allows = new[] { "ID", "ProjectName", "Name", "Category", "ProductCode", "CityName", "Address", "PingCount", "WebSocket", "Version", "OSKind", "IP", "AvailableMemory", "MemoryUsed", "AvailableFreeSpace", "SpaceUsed", "CpuRate", "ProcessCount", __.Signal, __.Offset, "UplinkSpeed", "DownlinkSpeed", "TraceId", "LocalTime", "CreateTime", "UpdateTime", "UpdateIP" };
         foreach (var item in allows)
         {
             list.AddListField(item);
@@ -46,6 +53,8 @@ public class NodeOnlineController : ReadOnlyEntityController<NodeOnline>
         //    df.DisplayName = "应用实例";
         //    df.Url = "/Registry/AppOnline?nodeId={NodeID}";
         //}
+
+        ListFields.TraceUrl();
     }
 
     public NodeOnlineController(StarFactory starFactory) => _starFactory = starFactory;
