@@ -1,9 +1,7 @@
 ﻿using System.Text.Json;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-
 using NewLife;
 using NewLife.Caching;
 using NewLife.Log;
@@ -11,14 +9,12 @@ using NewLife.Remoting;
 using NewLife.Remoting.Extensions;
 using NewLife.Remoting.Models;
 using NewLife.Web;
-
 using Stardust.Data.Deployment;
 using Stardust.Data.Nodes;
 using Stardust.Models;
 using Stardust.Server.Services;
-
 using XCode;
-
+using XCode.Membership;
 using TokenService = Stardust.Server.Services.TokenService;
 using WebSocket = System.Net.WebSockets.WebSocket;
 
@@ -54,6 +50,8 @@ public class NodeController : BaseController
     #region 令牌验证
     protected override Boolean OnAuthorize(String token)
     {
+        ManageProvider.UserHost = UserHost;
+
         var (jwt, node, ex) = _nodeService.DecodeToken(token, _setting.TokenSecret);
         _node = node;
         _clientId = jwt.Id;

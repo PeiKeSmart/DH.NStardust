@@ -608,6 +608,7 @@ public class NodeService
         //olt.COMs = node.COMs;
         olt.Token = token;
         olt.CreateIP = ip;
+        olt.UpdateIP = ip;
 
         olt.Creator = Environment.MachineName;
 
