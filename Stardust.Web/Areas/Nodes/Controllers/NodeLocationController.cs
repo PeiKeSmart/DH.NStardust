@@ -29,13 +29,14 @@ public class NodeLocationController : EntityController<NodeLocation>
         //    ss.View = "_Area3";
         //}
         //{
-        //    var ff = AddFormFields.GetField("AreaId") as FormField;
-        //    ff.ItemView = "_Area3";
-        //}
-        //{
-        //    var ff = EditFormFields.GetField("AreaId") as FormField;
-        //    ff.ItemView = "_Area3";
-        //}
+        {
+            var ff = AddFormFields.GetField("AreaId") as FormField;
+            ff.ItemView = "_Area3";
+        }
+        {
+            var ff = EditFormFields.GetField("AreaId") as FormField;
+            ff.ItemView = "_Area3";
+        }
     }
 
     //private readonly ITracer _tracer;
