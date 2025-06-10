@@ -24,10 +24,16 @@
 
   <ItemGroup>
     <Compile Remove="Config\**" />
+    <Compile Remove="Deployment\Config\**" />
+    <Compile Remove="Deployment\Log\**" />
     <Compile Remove="RedisNodes\Config\**" />
     <EmbeddedResource Remove="Config\**" />
+    <EmbeddedResource Remove="Deployment\Config\**" />
+    <EmbeddedResource Remove="Deployment\Log\**" />
     <EmbeddedResource Remove="RedisNodes\Config\**" />
     <None Remove="Config\**" />
+    <None Remove="Deployment\Config\**" />
+    <None Remove="Deployment\Log\**" />
     <None Remove="RedisNodes\Config\**" />
   </ItemGroup>
 
