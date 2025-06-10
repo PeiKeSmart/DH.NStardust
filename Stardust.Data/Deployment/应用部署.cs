@@ -336,6 +336,8 @@ public partial class AppDeploy
             "MultiVersion" => _MultiVersion,
             "AutoPublish" => _AutoPublish,
             "PackageName" => _PackageName,
+            "Port" => _Port,
+            "FrontPorts" => _FrontPorts,
             "Repository" => _Repository,
             "Branch" => _Branch,
             "ProjectPath" => _ProjectPath,
@@ -374,6 +376,8 @@ public partial class AppDeploy
                 case "MultiVersion": _MultiVersion = value.ToBoolean(); break;
                 case "AutoPublish": _AutoPublish = value.ToBoolean(); break;
                 case "PackageName": _PackageName = Convert.ToString(value); break;
+                case "Port": _Port = value.ToInt(); break;
+                case "FrontPorts": _FrontPorts = Convert.ToString(value); break;
                 case "Repository": _Repository = Convert.ToString(value); break;
                 case "Branch": _Branch = Convert.ToString(value); break;
                 case "ProjectPath": _ProjectPath = Convert.ToString(value); break;
@@ -451,6 +455,12 @@ public partial class AppDeploy
 
         /// <summary>包名。用于判断上传包名是否正确，避免错误上传其它应用包，支持*模糊匹配</summary>
         public static readonly Field PackageName = FindByName("PackageName");
+
+        /// <summary>应用端口。应用自身监听的端口，如果是dotnet应用会增加urls参数</summary>
+        public static readonly Field Port = FindByName("Port");
+
+        /// <summary>外部端口。对外提供服务的端口，一般是nginx对外，如80/443</summary>
+        public static readonly Field FrontPorts = FindByName("FrontPorts");
 
         /// <summary>代码库。下载代码的位置</summary>
         public static readonly Field Repository = FindByName("Repository");
@@ -553,6 +563,12 @@ public partial class AppDeploy
 
         /// <summary>包名。用于判断上传包名是否正确，避免错误上传其它应用包，支持*模糊匹配</summary>
         public const String PackageName = "PackageName";
+
+        /// <summary>应用端口。应用自身监听的端口，如果是dotnet应用会增加urls参数</summary>
+        public const String Port = "Port";
+
+        /// <summary>外部端口。对外提供服务的端口，一般是nginx对外，如80/443</summary>
+        public const String FrontPorts = "FrontPorts";
 
         /// <summary>代码库。下载代码的位置</summary>
         public const String Repository = "Repository";
