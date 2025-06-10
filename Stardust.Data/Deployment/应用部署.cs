@@ -111,6 +111,22 @@ public partial class AppDeploy
     [BindColumn("PackageName", "包名。用于判断上传包名是否正确，避免错误上传其它应用包，支持*模糊匹配", "")]
     public String PackageName { get => _PackageName; set { if (OnPropertyChanging("PackageName", value)) { _PackageName = value; OnPropertyChanged("PackageName"); } } }
 
+    private Int32 _Port;
+    /// <summary>应用端口。应用自身监听的端口，如果是dotnet应用会增加urls参数</summary>
+    [DisplayName("应用端口")]
+    [Description("应用端口。应用自身监听的端口，如果是dotnet应用会增加urls参数")]
+    [DataObjectField(false, false, false, 0)]
+    [BindColumn("Port", "应用端口。应用自身监听的端口，如果是dotnet应用会增加urls参数", "")]
+    public Int32 Port { get => _Port; set { if (OnPropertyChanging("Port", value)) { _Port = value; OnPropertyChanged("Port"); } } }
+
+    private String _FrontPorts;
+    /// <summary>外部端口。对外提供服务的端口，一般是nginx对外，如80/443</summary>
+    [DisplayName("外部端口")]
+    [Description("外部端口。对外提供服务的端口，一般是nginx对外，如80/443")]
+    [DataObjectField(false, false, true, 50)]
+    [BindColumn("FrontPorts", "外部端口。对外提供服务的端口，一般是nginx对外，如80/443", "")]
+    public String FrontPorts { get => _FrontPorts; set { if (OnPropertyChanging("FrontPorts", value)) { _FrontPorts = value; OnPropertyChanged("FrontPorts"); } } }
+
     private String _Repository;
     /// <summary>代码库。下载代码的位置</summary>
     [Category("编译参数")]
