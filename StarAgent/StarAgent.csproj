@@ -50,10 +50,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Managers\" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="DH.NAgent" Version="4.12.2025.603-beta0320" />
   </ItemGroup>
 
