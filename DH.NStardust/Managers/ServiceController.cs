@@ -1,11 +1,16 @@
 ﻿using System.Diagnostics;
+
 using NewLife;
 using NewLife.Agent.Windows;
 using NewLife.Log;
 using NewLife.Remoting.Clients;
 using NewLife.Threading;
+
+using StarAgent.Managers;
+
 using Stardust.Deployment;
 using Stardust.Models;
+
 #if !NET40
 using TaskEx = System.Threading.Tasks.Task;
 #endif
@@ -217,6 +222,25 @@ public class ServiceController : DisposeBase
 
                 // 此时还不能清零，因为进程可能不稳定，待定时器检测可靠后清零
                 //_error = 0;
+
+                // 检查nginx配置文件，如果存在，则发布nginx配置
+                var sites = NginxDeploy.DetectNginxConfig(workDir).ToList();
+                if (sites.Count > 0)
+                {
+                    WriteLog("Nginx配置目录：{0}", sites[0].ConfigPath);
+                    WriteLog("Nginx扩展名：{0}", sites[0].Extension);
+
+                    if (!sites[0].ConfigPath.IsNullOrEmpty())
+                    {
+                        foreach (var site in sites)
+                        {
+                            WriteLog("站点：{0}", site.SiteFile);
+                            site.Log = new ActionLog(WriteLog);
+                            var rs = site.Publish();
+                            WriteLog("站点发布{0}！", rs ? "成功" : "无变化");
+                        }
+                    }
+                }
 
                 return true;
             }
