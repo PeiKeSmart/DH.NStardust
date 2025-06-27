@@ -188,7 +188,14 @@ public class ServiceManager : DisposeBase
     {
         if (serviceName.IsNullOrEmpty()) return false;
         
-        return StopService(serviceName, reason);
+        var service = Services?.FirstOrDefault(e => e.Name.EqualIgnoreCase(serviceName));
+        if (service == null) return false;
+        
+        // 禁用服务，防止自动重启
+        service.Enable = false;
+        var result = StopService(serviceName, reason);
+        RaiseServiceChanged();
+        return result;
     }
 
     /// <summary>停止管理，按需杀掉进程</summary>

@@ -161,6 +161,8 @@ public class StarService : DisposeBase, IApi
     [Api(nameof(GetServices))]
     public String GetServices()
     {
+        CheckLocal();
+
         var list = Manager.Services;
         var runningList = Manager.RunningServices;
 
@@ -202,6 +204,8 @@ public class StarService : DisposeBase, IApi
     [Api("StartService")]
     public String StartService(String serviceName)
     {
+        CheckLocal();
+
         if (serviceName.IsNullOrEmpty())
         {
             return new { Success = false, Message = "服务名称不能为空" }.ToJson();
@@ -234,6 +238,8 @@ public class StarService : DisposeBase, IApi
     [Api("StopService")]
     public String StopService(String serviceName)
     {
+        CheckLocal();
+
         if (serviceName.IsNullOrEmpty())
         {
             return new { Success = false, Message = "服务名称不能为空" }.ToJson();
@@ -266,6 +272,8 @@ public class StarService : DisposeBase, IApi
     [Api("RestartService")]
     public String RestartService(String serviceName)
     {
+        CheckLocal();
+
         if (serviceName.IsNullOrEmpty())
         {
             return new { Success = false, Message = "服务名称不能为空" }.ToJson();
