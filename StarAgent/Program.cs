@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reflection;
 using NewLife;
 using NewLife.Agent;
@@ -625,7 +625,6 @@ internal class MyService : ServiceBase, IServiceProvider
 
         var set = StarSetting;
         if (!set.Server.IsNullOrEmpty()) Console.WriteLine("服务端：{0}", set.Server);
-        Console.WriteLine("l、 查看子服务 -ListServices");
         Console.WriteLine();
     }
 
