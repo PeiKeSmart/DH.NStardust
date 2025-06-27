@@ -168,8 +168,6 @@ public class StarService : DisposeBase, IApi
 
         var result = new
         {
-            Count = list.Count(),
-            RunningCount = runningList.Length,
             Services = list.Select(s => new
             {
                 s.Name,
