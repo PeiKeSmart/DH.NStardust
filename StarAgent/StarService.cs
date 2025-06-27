@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using NewLife;
 using NewLife.Agent;
@@ -8,6 +8,7 @@ using NewLife.Model;
 using NewLife.Net;
 using NewLife.Remoting;
 using NewLife.Remoting.Models;
+using NewLife.Serialization;
 using NewLife.Threading;
 using Stardust;
 using Stardust.Managers;
@@ -153,6 +154,36 @@ public class StarService : DisposeBase, IApi
         }
 
         return set.Server;
+    }
+
+    /// <summary>获取所有服务列表</summary>
+    /// <returns></returns>
+    [Api(nameof(GetServices))]
+    public String GetServices()
+    {
+        var list = Manager.Services;
+
+        var result = new
+        {
+            Count = list.Count(),
+            Services = list.Select(s => new
+            {
+                s.Name,
+                s.FileName,
+                s.Arguments,
+                s.WorkingDirectory,
+                s.UserName,
+                s.Enable,
+                s.Mode,
+                s.Environments,
+                s.AutoStop,
+                s.ReloadOnChange,
+                s.MaxMemory,
+                s.ZipFile
+            }).ToArray()
+        };
+
+        return result.ToJson();
     }
 
     private void DoRefreshLocal(Object state)
