@@ -1,4 +1,4 @@
-﻿using System.Net.Http;
+using System.Net.Http;
 using NewLife;
 using NewLife.Http;
 using NewLife.IO;
@@ -17,6 +17,9 @@ public class ServiceManager : DisposeBase
     #region 属性
     /// <summary>应用服务集合</summary>
     public ServiceInfo[]? Services { get; private set; }
+
+    /// <summary>正在运行的应用服务信息</summary>
+    public ProcessInfo[] RunningServices => _controllers.Select(e => e.ToModel()).ToArray();
 
     /// <summary>延迟时间。重启进程或服务的延迟时间，默认3000ms</summary>
     public Int32 Delay { get; set; } = 3000;

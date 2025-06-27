@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using NewLife;
 using NewLife.Agent;
@@ -162,10 +162,12 @@ public class StarService : DisposeBase, IApi
     public String GetServices()
     {
         var list = Manager.Services;
+        var runningList = Manager.RunningServices;
 
         var result = new
         {
             Count = list.Count(),
+            RunningCount = runningList.Length,
             Services = list.Select(s => new
             {
                 s.Name,
@@ -180,6 +182,14 @@ public class StarService : DisposeBase, IApi
                 s.ReloadOnChange,
                 s.MaxMemory,
                 s.ZipFile
+            }).ToArray(),
+            RunningServices = runningList.Select(r => new
+            {
+                r.Name,
+                r.ProcessId,
+                r.ProcessName,
+                r.CreateTime,
+                r.UpdateTime
             }).ToArray()
         };
 
