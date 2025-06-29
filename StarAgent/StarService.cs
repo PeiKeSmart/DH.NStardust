@@ -1,5 +1,8 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+
+using DH.NStardust.Models;
+
 using NewLife;
 using NewLife.Agent;
 using NewLife.Data;
@@ -10,6 +13,7 @@ using NewLife.Remoting;
 using NewLife.Remoting.Models;
 using NewLife.Serialization;
 using NewLife.Threading;
+
 using Stardust;
 using Stardust.Managers;
 using Stardust.Models;
@@ -159,41 +163,20 @@ public class StarService : DisposeBase, IApi
     /// <summary>获取所有服务列表</summary>
     /// <returns></returns>
     [Api(nameof(GetServices))]
-    public String GetServices()
+    public ServicesInfo GetServices()
     {
         CheckLocal();
 
         var list = Manager.Services;
         var runningList = Manager.RunningServices;
 
-        var result = new
+        var result = new ServicesInfo
         {
-            Services = list.Select(s => new
-            {
-                s.Name,
-                s.FileName,
-                s.Arguments,
-                s.WorkingDirectory,
-                s.UserName,
-                s.Enable,
-                s.Mode,
-                s.Environments,
-                s.AutoStop,
-                s.ReloadOnChange,
-                s.MaxMemory,
-                s.ZipFile
-            }).ToArray(),
-            RunningServices = runningList.Select(r => new
-            {
-                r.Name,
-                r.ProcessId,
-                r.ProcessName,
-                r.CreateTime,
-                r.UpdateTime
-            }).ToArray()
+            Services = list?.ToArray(),
+            RunningServices = runningList?.ToArray()
         };
 
-        return result.ToJson();
+        return result;
     }
 
     /// <summary>启动服务</summary>
