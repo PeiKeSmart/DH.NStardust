@@ -4,18 +4,17 @@ using NewLife.Agent;
 using NewLife.Agent.Command;
 using NewLife.Log;
 using NewLife.Remoting;
-using NewLife.Serialization;
 
 namespace StarAgent.CommandHandler;
 
 public class ListServices : BaseCommandHandler
 {
-    public ListServices(ServiceBase service) : base(service)
-    {
-        Cmd = "-ListServices";
-        Description = "查看子服务";
-        ShortcutKey = 'l';
-    }
+        public ListServices(ServiceBase service) : base(service)
+        {
+            Cmd = "-ListServices";
+            Description = "查看子服务";
+            ShortcutKey = 'l';
+        }
 
     public override void Process(String[] args)
     {

@@ -11,7 +11,6 @@ using NewLife.Model;
 using NewLife.Net;
 using NewLife.Remoting;
 using NewLife.Remoting.Models;
-using NewLife.Serialization;
 using NewLife.Threading;
 
 using Stardust;
@@ -183,33 +182,33 @@ public class StarService : DisposeBase, IApi
     /// <param name="serviceName">服务名称</param>
     /// <returns></returns>
     [Api("StartService")]
-    public String StartService(String serviceName)
+    public ServiceOperationResult StartService(String serviceName)
     {
         CheckLocal();
 
         if (serviceName.IsNullOrEmpty())
         {
-            return new { Success = false, Message = "服务名称不能为空" }.ToJson();
+            return new ServiceOperationResult { Success = false, Message = "服务名称不能为空" };
         }
 
         try
         {
             var result = Manager?.Start(serviceName);
-            return new 
+            return new ServiceOperationResult
             { 
                 Success = result ?? false, 
                 Message = result == true ? "服务启动成功" : "服务启动失败或服务不存在",
                 ServiceName = serviceName
-            }.ToJson();
+            };
         }
         catch (Exception ex)
         {
-            return new 
+            return new ServiceOperationResult
             { 
                 Success = false, 
                 Message = $"启动服务时发生错误: {ex.Message}",
                 ServiceName = serviceName
-            }.ToJson();
+            };
         }
     }
 
@@ -217,33 +216,33 @@ public class StarService : DisposeBase, IApi
     /// <param name="serviceName">服务名称</param>
     /// <returns></returns>
     [Api("StopService")]
-    public String StopService(String serviceName)
+    public ServiceOperationResult StopService(String serviceName)
     {
         CheckLocal();
 
         if (serviceName.IsNullOrEmpty())
         {
-            return new { Success = false, Message = "服务名称不能为空" }.ToJson();
+            return new ServiceOperationResult { Success = false, Message = "服务名称不能为空" };
         }
 
         try
         {
             var result = Manager?.Stop(serviceName, "API调用停止");
-            return new 
+            return new ServiceOperationResult
             { 
                 Success = result ?? false, 
                 Message = result == true ? "服务停止成功" : "服务停止失败或服务不存在",
                 ServiceName = serviceName
-            }.ToJson();
+            };
         }
         catch (Exception ex)
         {
-            return new 
+            return new ServiceOperationResult
             { 
                 Success = false, 
                 Message = $"停止服务时发生错误: {ex.Message}",
                 ServiceName = serviceName
-            }.ToJson();
+            };
         }
     }
 
@@ -251,13 +250,13 @@ public class StarService : DisposeBase, IApi
     /// <param name="serviceName">服务名称</param>
     /// <returns></returns>
     [Api("RestartService")]
-    public String RestartService(String serviceName)
+    public ServiceOperationResult RestartService(String serviceName)
     {
         CheckLocal();
 
         if (serviceName.IsNullOrEmpty())
         {
-            return new { Success = false, Message = "服务名称不能为空" }.ToJson();
+            return new ServiceOperationResult { Success = false, Message = "服务名称不能为空" };
         }
 
         try
@@ -266,12 +265,12 @@ public class StarService : DisposeBase, IApi
             var stopResult = Manager?.Stop(serviceName, "API调用重启");
             if (stopResult != true)
             {
-                return new 
+                return new ServiceOperationResult
                 { 
                     Success = false, 
                     Message = "重启失败：无法停止服务或服务不存在",
                     ServiceName = serviceName
-                }.ToJson();
+                };
             }
 
             // 等待一小段时间确保服务完全停止
@@ -279,21 +278,21 @@ public class StarService : DisposeBase, IApi
 
             // 再启动服务
             var startResult = Manager?.Start(serviceName);
-            return new 
+            return new ServiceOperationResult
             { 
                 Success = startResult ?? false, 
                 Message = startResult == true ? "服务重启成功" : "重启失败：服务停止成功但启动失败",
                 ServiceName = serviceName
-            }.ToJson();
+            };
         }
         catch (Exception ex)
         {
-            return new 
+            return new ServiceOperationResult
             { 
                 Success = false, 
                 Message = $"重启服务时发生错误: {ex.Message}",
                 ServiceName = serviceName
-            }.ToJson();
+            };
         }
     }
 
