@@ -9,12 +9,12 @@ namespace StarAgent.CommandHandler;
 
 public class ListServices : BaseCommandHandler
 {
-        public ListServices(ServiceBase service) : base(service)
-        {
-            Cmd = "-ListServices";
-            Description = "查看子服务";
-            ShortcutKey = 'l';
-        }
+    public ListServices(ServiceBase service) : base(service)
+    {
+        Cmd = "-ListServices";
+        Description = "查看子服务";
+        ShortcutKey = '6';
+    }
 
     public override void Process(String[] args)
     {
