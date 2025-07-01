@@ -2,7 +2,7 @@
 using NewLife.Agent.Command;
 using NewLife.Log;
 using NewLife.Remoting;
-using DH.NStardust.Models;
+using Stardust.Models;
 
 namespace StarAgent.CommandHandler;
 

@@ -1,8 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
-
-using DH.NStardust.Models;
-
 using NewLife;
 using NewLife.Agent;
 using NewLife.Data;
@@ -12,7 +9,6 @@ using NewLife.Net;
 using NewLife.Remoting;
 using NewLife.Remoting.Models;
 using NewLife.Threading;
-
 using Stardust;
 using Stardust.Managers;
 using Stardust.Models;
@@ -195,8 +191,8 @@ public class StarService : DisposeBase, IApi
         {
             var result = Manager?.Start(serviceName);
             return new ServiceOperationResult
-            { 
-                Success = result ?? false, 
+            {
+                Success = result ?? false,
                 Message = result == true ? "服务启动成功" : "服务启动失败或服务不存在",
                 ServiceName = serviceName
             };
@@ -204,8 +200,8 @@ public class StarService : DisposeBase, IApi
         catch (Exception ex)
         {
             return new ServiceOperationResult
-            { 
-                Success = false, 
+            {
+                Success = false,
                 Message = $"启动服务时发生错误: {ex.Message}",
                 ServiceName = serviceName
             };
@@ -229,8 +225,8 @@ public class StarService : DisposeBase, IApi
         {
             var result = Manager?.Stop(serviceName, "API调用停止");
             return new ServiceOperationResult
-            { 
-                Success = result ?? false, 
+            {
+                Success = result ?? false,
                 Message = result == true ? "服务停止成功" : "服务停止失败或服务不存在",
                 ServiceName = serviceName
             };
@@ -238,8 +234,8 @@ public class StarService : DisposeBase, IApi
         catch (Exception ex)
         {
             return new ServiceOperationResult
-            { 
-                Success = false, 
+            {
+                Success = false,
                 Message = $"停止服务时发生错误: {ex.Message}",
                 ServiceName = serviceName
             };
@@ -266,8 +262,8 @@ public class StarService : DisposeBase, IApi
             if (stopResult != true)
             {
                 return new ServiceOperationResult
-                { 
-                    Success = false, 
+                {
+                    Success = false,
                     Message = "重启失败：无法停止服务或服务不存在",
                     ServiceName = serviceName
                 };
@@ -279,8 +275,8 @@ public class StarService : DisposeBase, IApi
             // 再启动服务
             var startResult = Manager?.Start(serviceName);
             return new ServiceOperationResult
-            { 
-                Success = startResult ?? false, 
+            {
+                Success = startResult ?? false,
                 Message = startResult == true ? "服务重启成功" : "重启失败：服务停止成功但启动失败",
                 ServiceName = serviceName
             };
@@ -288,8 +284,8 @@ public class StarService : DisposeBase, IApi
         catch (Exception ex)
         {
             return new ServiceOperationResult
-            { 
-                Success = false, 
+            {
+                Success = false,
                 Message = $"重启服务时发生错误: {ex.Message}",
                 ServiceName = serviceName
             };

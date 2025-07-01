@@ -2,7 +2,7 @@
 using NewLife.Agent.Command;
 using NewLife.Log;
 using NewLife.Remoting;
-using DH.NStardust.Models;
+using Stardust.Models;
 
 namespace StarAgent.CommandHandler;
 
@@ -88,6 +88,6 @@ public class StartService : BaseCommandHandler
 public class ServiceOperationResult
 {
     public Boolean Success { get; set; }
-    public String Message { get; set; }
-    public String ServiceName { get; set; }
+    public String? Message { get; set; }
+    public String? ServiceName { get; set; }
 }

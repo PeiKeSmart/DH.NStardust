@@ -164,40 +164,6 @@ public class ServiceManager : DisposeBase
         _timer = new TimerX(DoWork, null, 1000, 30_000) { Async = true };
     }
 
-    /// <summary>启动指定服务</summary>
-    /// <param name="serviceName">服务名称</param>
-    /// <returns>是否成功启动</returns>
-    public Boolean Start(String serviceName)
-    {
-        if (serviceName.IsNullOrEmpty()) return false;
-        
-        var service = Services?.FirstOrDefault(e => e.Name.EqualIgnoreCase(serviceName));
-        if (service == null) return false;
-        
-        service.Enable = true;
-        var result = StartService(service, null);
-        RaiseServiceChanged();
-        return result;
-    }
-
-    /// <summary>停止指定服务</summary>
-    /// <param name="serviceName">服务名称</param>
-    /// <param name="reason">停止原因</param>
-    /// <returns>是否成功停止</returns>
-    public Boolean Stop(String serviceName, String reason)
-    {
-        if (serviceName.IsNullOrEmpty()) return false;
-        
-        var service = Services?.FirstOrDefault(e => e.Name.EqualIgnoreCase(serviceName));
-        if (service == null) return false;
-        
-        // 禁用服务，防止自动重启
-        service.Enable = false;
-        var result = StopService(serviceName, reason);
-        RaiseServiceChanged();
-        return result;
-    }
-
     /// <summary>停止管理，按需杀掉进程</summary>
     /// <param name="reason"></param>
     public void Stop(String reason)
@@ -265,6 +231,40 @@ public class ServiceManager : DisposeBase
         }
 
         SaveDb();
+    }
+
+    /// <summary>启动指定服务</summary>
+    /// <param name="serviceName">服务名称</param>
+    /// <returns>是否成功启动</returns>
+    public Boolean Start(String serviceName)
+    {
+        if (serviceName.IsNullOrEmpty()) return false;
+
+        var service = Services?.FirstOrDefault(e => e.Name.EqualIgnoreCase(serviceName));
+        if (service == null) return false;
+
+        service.Enable = true;
+        var result = StartService(service, null);
+        RaiseServiceChanged();
+        return result;
+    }
+
+    /// <summary>停止指定服务</summary>
+    /// <param name="serviceName">服务名称</param>
+    /// <param name="reason">停止原因</param>
+    /// <returns>是否成功停止</returns>
+    public Boolean Stop(String serviceName, String reason)
+    {
+        if (serviceName.IsNullOrEmpty()) return false;
+
+        var service = Services?.FirstOrDefault(e => e.Name.EqualIgnoreCase(serviceName));
+        if (service == null) return false;
+
+        // 禁用服务，防止自动重启
+        service.Enable = false;
+        var result = StopService(serviceName, reason);
+        RaiseServiceChanged();
+        return result;
     }
 
     /// <summary>保存应用状态到数据库</summary>

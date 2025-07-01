@@ -39,7 +39,7 @@ public class NodeController : BaseController
     {
         _cacheProvider = cacheProvider;
         _tracer = tracer;
-        _jsonOptions = jsonOptions;
+        this._jsonOptions = jsonOptions;
         _nodeService = nodeService;
         _tokenService = tokenService;
         _deployService = deployService;

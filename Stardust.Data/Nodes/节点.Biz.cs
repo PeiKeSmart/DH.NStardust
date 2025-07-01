@@ -160,7 +160,7 @@ public partial class Node : Entity<Node>
     /// <returns></returns>
     public static IList<Node> FindAllByIP(String ip)
     {
-        if (ip.IsNullOrEmpty()) return [];
+        if (ip.IsNullOrEmpty()) return new List<Node>();
 
         // 实体缓存
         if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => ip == e.IP);
@@ -326,7 +326,7 @@ public partial class Node : Entity<Node>
     /// <returns></returns>
     public static IList<Node> SearchByIP(String ip)
     {
-        if (ip.IsNullOrEmpty()) return new List<Node>();
+        if (ip.IsNullOrEmpty()) return [];
 
         var ips = ip.Split(',', StringSplitOptions.RemoveEmptyEntries);
 

@@ -201,8 +201,8 @@ public class DeployService
 
         // 部署集
         var app = AppDeploy.FindByName(name);
+        app ??= new AppDeploy { Name = name };
         if (app.AppId <= 0) app.AppId = ap.Id;
-        app.AppId = ap.Id;
         if (!ap.Category.IsNullOrEmpty()) app.Category = ap.Category;
         app.Save();
 

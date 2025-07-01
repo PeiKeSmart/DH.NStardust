@@ -133,9 +133,9 @@ public class NodeStatController : ReadOnlyEntityController<NodeStat>
             var chart = new ECharts { Height = 400, };
             chart.SetX(list2, _.StatDate);
             chart.YAxis = [
-                new YAxis{ Name = "数值", Type = "value" },
-                new YAxis{ Name = "总数", Type = "value" }
-            ];
+                    new YAxis{ Name = "数值", Type = "value" },
+                    new YAxis{ Name = "总数", Type = "value" }
+                ];
             chart.AddDataZoom();
 
             var line = chart.AddLine(list2, _.Total, null, true);

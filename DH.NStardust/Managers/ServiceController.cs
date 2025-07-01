@@ -1,16 +1,12 @@
 ﻿using System.Diagnostics;
-
 using NewLife;
 using NewLife.Agent.Windows;
 using NewLife.Log;
 using NewLife.Remoting.Clients;
 using NewLife.Threading;
-
 using StarAgent.Managers;
-
 using Stardust.Deployment;
 using Stardust.Models;
-
 #if !NET40
 using TaskEx = System.Threading.Tasks.Task;
 #endif

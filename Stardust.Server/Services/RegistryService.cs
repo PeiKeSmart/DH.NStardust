@@ -1,6 +1,7 @@
 ﻿using NewLife;
 using NewLife.Caching;
 using NewLife.Log;
+using NewLife.Net;
 using NewLife.Remoting;
 using NewLife.Remoting.Models;
 using NewLife.Security;

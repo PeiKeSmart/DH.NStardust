@@ -1,4 +1,5 @@
-﻿using NewLife.Remoting.Models;
+﻿using System.ComponentModel;
+using NewLife.Remoting.Models;
 
 namespace Stardust.Models;
 
@@ -76,6 +77,7 @@ public class PingInfo : PingRequest
     //public Int32 Delay { get; set; }
     #endregion
 }
+
 /// <summary>心跳响应</summary>
 public class MyPingResponse : PingResponse
 {

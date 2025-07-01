@@ -1,7 +1,6 @@
 ﻿using Stardust.Managers;
-using Stardust.Models;
 
-namespace DH.NStardust.Models;
+namespace Stardust.Models;
 
 /// <summary>应用服务集合信息</summary>
 public class ServicesInfo

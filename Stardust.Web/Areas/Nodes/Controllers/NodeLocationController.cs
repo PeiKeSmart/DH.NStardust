@@ -28,7 +28,6 @@ public class NodeLocationController : EntityController<NodeLocation>
         //    var ss = SearchFields.AddDataField("AreaId") as SearchField;
         //    ss.View = "_Area3";
         //}
-        //{
         {
             var ff = AddFormFields.GetField("AreaId") as FormField;
             ff.ItemView = "_Area3";

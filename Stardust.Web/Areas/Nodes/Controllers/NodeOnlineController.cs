@@ -1,20 +1,14 @@
 ﻿using System.ComponentModel;
-
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-
 using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
 using NewLife.Cube.ViewModels;
 using NewLife.Web;
-
 using Stardust.Data.Nodes;
-
 using XCode.Membership;
-
 using static Stardust.Data.Nodes.NodeOnline;
-
 using Node = Stardust.Data.Nodes.Node;
 
 namespace Stardust.Web.Areas.Nodes.Controllers;
@@ -161,7 +155,6 @@ public class NodeOnlineController : ReadOnlyEntityController<NodeOnline>
 
         return JsonRefresh($"操作成功！下发指令{rs.Length}个，成功{rs.Count(e => e > 0)}个");
     }
-
 
     [DisplayName("重启服务")]
     [EntityAuthorize((PermissionFlags)32)]
