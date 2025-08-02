@@ -5,12 +5,12 @@
         border-color: rgb(211, 202, 221);
     }
 
-    table thead,
-    table tr {
-        border-top-width: 1px;
-        border-top-style: solid;
-        border-top-color: rgb(211, 202, 221);
-    }
+        table thead,
+        table tr {
+            border-top-width: 1px;
+            border-top-style: solid;
+            border-top-color: rgb(211, 202, 221);
+        }
 
     table {
         border-bottom-width: 1px;
@@ -18,21 +18,21 @@
         border-bottom-color: rgb(211, 202, 221);
     }
 
-    table td,
-    table th {
-        padding: 5px 10px;
-        font-size: 14px;
-        font-family: Verdana;
-        color: rgb(95, 74, 121);
-    }
+        table td,
+        table th {
+            padding: 5px 10px;
+            font-size: 14px;
+            font-family: Verdana;
+            color: rgb(95, 74, 121);
+        }
 
-    table tr:nth-child(even) {
-        background: rgb(223, 216, 232)
-    }
+        table tr:nth-child(even) {
+            background: rgb(223, 216, 232)
+        }
 
-    table tr:nth-child(odd) {
-        background: #FFF
-    }
+        table tr:nth-child(odd) {
+            background: #FFF
+        }
 </style>
 <h3>应用部署（AppDeploy）</h3>
 <table>
@@ -562,6 +562,17 @@
         </tr>
 
         <tr>
+            <td>UserName</td>
+            <td>用户名</td>
+            <td>String</td>
+            <td>50</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>以该用户执行应用</td>
+        </tr>
+
+        <tr>
             <td>Environments</td>
             <td>环境变量</td>
             <td>String</td>
@@ -606,17 +617,6 @@
         </tr>
 
         <tr>
-            <td>UserName</td>
-            <td>用户名</td>
-            <td>String</td>
-            <td>50</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td>启动该进程的用户名</td>
-        </tr>
-
-        <tr>
             <td>ProcessName</td>
             <td>进程名称</td>
             <td>String</td>
@@ -625,6 +625,17 @@
             <td></td>
             <td></td>
             <td></td>
+        </tr>
+
+        <tr>
+            <td>ProcessUser</td>
+            <td>进程用户</td>
+            <td>String</td>
+            <td>50</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>启动该进程的用户名</td>
         </tr>
 
         <tr>
