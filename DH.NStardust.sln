@@ -18,6 +18,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8D122272-87BB-4968-8A2F-CFF04CE47B29}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
+		.github\copilot-instructions.md = .github\copilot-instructions.md
 		global.json = global.json
 		NuGet.config = NuGet.config
 		.github\workflows\publish-beta.yml = .github\workflows\publish-beta.yml
