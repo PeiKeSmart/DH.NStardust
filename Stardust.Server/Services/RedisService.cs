@@ -1,367 +1,735 @@
 ﻿using NewLife;
 using NewLife.Caching;
-using NewLife.Caching.Queues;
 using NewLife.Log;
+using NewLife.Remoting;
+using NewLife.Remoting.Models;
+using NewLife.Remoting.Services;
+using NewLife.Security;
 using NewLife.Serialization;
-using NewLife.Threading;
-using Stardust.Data.Models;
+using Stardust.Data;
+using Stardust.Data.Configs;
 using Stardust.Data.Nodes;
+using Stardust.Data.Platform;
+using Stardust.Models;
+using XCode;
+using Service = Stardust.Data.Service;
 
 namespace Stardust.Server.Services;
 
-public interface IRedisService
+public class RegistryService(AppQueueService queue, AppOnlineService appOnline, IPasswordProvider passwordProvider, AppSessionManager sessionManager, ICacheProvider cacheProvider, StarServerSetting setting, ITracer tracer) : IDeviceService
 {
-    void TraceNode(RedisNode node);
-
-    void TraceQueue(RedisMessageQueue queue);
-}
-
-public class RedisService : IHostedService, IRedisService
-{
-    /// <summary>计算周期。默认60秒</summary>
-    public Int32 Period { get; set; } = 60;
-
-    private TimerX _traceNode;
-    private TimerX _traceQueue;
-    private readonly ICache _cache = new MemoryCache();
-    private readonly ITracer _tracer;
-    private readonly ILog _log;
-
-    public RedisService(ITracer tracer, ILog log)
+    #region 登录注销
+    /// <summary>应用鉴权</summary>
+    /// <param name="app"></param>
+    /// <param name="secret"></param>
+    /// <param name="ip"></param>
+    /// <param name="clientId"></param>
+    /// <returns></returns>
+    /// <exception cref="ApiException"></exception>
+    public Boolean Auth(App app, String secret, String ip, String clientId)
     {
-        _tracer = tracer;
-        _log = log;
-    }
+        if (app == null) return false;
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        // 初始化定时器
-        _traceNode = new TimerX(DoTraceNode, null, 60_000, Period * 1000) { Async = true };
-        _traceQueue = new TimerX(DoTraceQueue, null, 65_000, Period * 1000) { Async = true };
+        // 检查黑白名单
+        if (!app.MatchIp(ip))
+            throw new ApiException(ApiCode.Forbidden, $"应用[{app.Name}]禁止{ip}访问！");
+        if (app.Project != null && !app.Project.MatchIp(ip))
+            throw new ApiException(ApiCode.Forbidden, $"项目[{app.Project}]禁止{ip}访问！");
 
-        return Task.CompletedTask;
-    }
+        // 检查应用有效性
+        if (!app.Enable) throw new ApiException(ApiCode.Forbidden, $"应用[{app.Name}]已禁用！");
 
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _traceNode?.TryDispose();
-        _traceQueue?.TryDispose();
+        // 未设置密钥，直接通过
+        if (app.Secret.IsNullOrEmpty()) return true;
+        if (app.Secret == secret) return true;
 
-        return Task.CompletedTask;
-    }
-
-    private void DoTraceNode(Object state)
-    {
-        var list = RedisNode.FindAllWithCache();
-        foreach (var item in list)
+        if (setting.SaltTime > 0 && passwordProvider is SaltPasswordProvider saltProvider)
         {
-            if (item.Enable)
-            {
-                // 捕获异常，不要影响后续操作
-                var key = $"DoTraceNode:{item.Id}";
-                var errors = _cache.Get<Int64>(key);
-                if (errors < 5)
-                {
-                    try
-                    {
-                        TraceNode(item);
-
-                        _cache.Remove(key);
-                    }
-                    catch (Exception ex)
-                    {
-                        errors = _cache.Increment(key, 1);
-                        if (errors <= 1)
-                            _cache.SetExpire(key, TimeSpan.FromMinutes(10));
-
-                        XTrace.WriteException(ex);
-                    }
-                }
-                else
-                {
-                    item.Enable = false;
-                    item.SaveAsync();
-
-                    _cache.Remove(key);
-                }
-            }
+            // 使用盐值偏差时间，允许客户端时间与服务端时间有一定偏差
+            saltProvider.SaltTime = setting.SaltTime;
         }
+        if (secret.IsNullOrEmpty() || !passwordProvider.Verify(app.Secret, secret))
+        {
+            app.WriteHistory("应用鉴权", false, "密钥校验失败", null, ip, clientId);
+            return false;
+        }
+
+        return true;
     }
 
-    private readonly IDictionary<Int32, FullRedis> _servers = new Dictionary<Int32, FullRedis>();
-    private readonly IDictionary<String, FullRedis> _servers2 = new Dictionary<String, FullRedis>();
-
-    private FullRedis GetOrAdd(RedisNode node, Int32 db)
+    /// <summary>应用注册</summary>
+    /// <param name="name"></param>
+    /// <param name="secret"></param>
+    /// <param name="ip"></param>
+    /// <returns></returns>
+    public App Register(String name, String secret, String ip, String clientId)
     {
-        var key = $"{node.Id}-{db}";
-        if (!_servers2.TryGetValue(key, out var rds)) _servers2[key] = rds = new FullRedis();
-
-        rds.Server = node.Server;
-        rds.Password = node.Password;
-        if (!node.UserName.IsNullOrEmpty())
+        // 查找应用
+        var app = App.FindByName(name);
+        // 查找或创建应用，避免多线程创建冲突
+        app ??= App.GetOrAdd(name, App.FindByName, k => new App
         {
-            rds.UserName = node.UserName;
-        }
-        rds.Db = db;
-        rds.Tracer = _tracer;
-        rds.Log = _log;
+            Name = name,
+            Secret = Rand.NextString(16),
+            Enable = setting.AppAutoRegister,
+        });
 
-        return rds;
+        app.WriteHistory("应用注册", true, $"[{app.Name}]注册成功", null, ip, clientId);
+
+        return app;
     }
 
-    public void TraceNode(RedisNode node)
+    public App Login(App app, AppModel model, String ip)
     {
-        using var span = _tracer?.NewSpan($"RedisService-TraceNode", node);
-
-        if (!_servers.TryGetValue(node.Id, out var rds)) _servers[node.Id] = rds = new FullRedis();
-
-        // 可能后面更新了服务器地址和密码
-        rds.Server = node.Server;
-        if (!node.UserName.IsNullOrEmpty())
+        // 设置默认项目
+        if (app.ProjectId == 0 || app.ProjectName == "默认")
         {
-            rds.UserName = node.UserName;
+            var project = GalaxyProject.FindByName(model.Project);
+            if (project != null)
+                app.ProjectId = project.Id;
         }
-        rds.Password = node.Password;
-        rds.Tracer = _tracer;
-        rds.Log = _log;
 
-        //var inf = rds.GetInfo(true);
-        var inf = rds.GetInfo(false);
-        node.Fill(inf);
-        node.Update();
+        if (app.DisplayName.IsNullOrEmpty()) app.DisplayName = model.AppName;
 
-        var data = new RedisData
+        // 比较编译时间，只要最新的
+        var compile = model.Compile.ToDateTime().ToLocalTime();
+        if (app.Compile < compile)
         {
-            RedisId = node.Id,
-            Name = node.Name,
+            app.Compile = compile;
+            app.Version = model.Version;
+        }
+
+        app.LastLogin = DateTime.Now;
+        app.LastIP = ip;
+        app.UpdateIP = ip;
+        app.Update();
+
+        // 登录历史
+        app.WriteHistory("应用鉴权", true, $"[{app.DisplayName}/{app.Name}]鉴权成功 " + model.ToJson(false, false, false), model.Version, ip, model.ClientId);
+
+        return app;
+    }
+
+    public ILoginResponse Login(DeviceContext context, ILoginRequest request, String source)
+    {
+        var ip = context.UserHost;
+        var model = request as AppModel;
+        var app = App.FindByName(request.Code);
+        if (app != null && !app.Enable) throw new ApiException(ApiCode.Forbidden, "禁止登录");
+
+        // 设备不存在或者验证失败，执行注册流程
+        if (app != null && !Auth(app, model.Secret, ip, model.ClientId))
+        {
+            app = null;
+        }
+
+        var autoReg = false;
+        var clientId = model.ClientId;
+        if (app == null)
+        {
+            app ??= Register(model.AppId, model.Secret, ip, clientId);
+            //_app = app ?? throw new ApiException(ApiCode.Unauthorized, "应用鉴权失败");
+
+            autoReg = true;
+        }
+
+        app = Login(app, model, ip);
+        context.Device = app;
+
+        //var tokenModel = tokenService.IssueToken(app.Name, clientId);
+
+        context.Online = SetOnline(app, model, ip, clientId, null);
+
+        var rs = new LoginResponse
+        {
+            Name = app.Name
         };
-        var dbs = data.Fill(inf);
-        data.Insert();
 
-        // 扫描队列
-        if (node.ScanQueue && dbs != null && dbs.Length > 0) ScanQueue(node, dbs);
+        // 动态注册，下发节点证书
+        if (autoReg) rs.Secret = app.Secret;
+
+        return rs;
     }
 
-    private void ScanQueue(RedisNode node, RedisDbEntry[] dbs)
+    /// <summary>注销</summary>
+    /// <param name="reason">注销原因</param>
+    /// <param name="ip">IP地址</param>
+    /// <returns></returns>
+    public IOnlineModel Logout(DeviceContext context, String reason, String source)
     {
-        var queues = RedisMessageQueue.FindAllByRedisId(node.Id);
+        var online = appOnline.GetOnline(context.ClientId);
+        if (online == null) return null;
 
-        for (var i = 0; i < dbs.Length; i++)
+        var app = context.Device as App;
+        var msg = $"{reason} [{app}]]登录于{online.CreateTime}，最后活跃于{online.UpdateTime}";
+        app.WriteHistory("应用下线", true, msg, context.UserHost);
+
+        //!! 应用注销，不删除在线记录，保留在线记录用于查询
+        //online.Delete();
+
+        appOnline.RemoveOnline(context.ClientId);
+
+        return online;
+    }
+
+    /// <summary>激活应用。更新在线信息和关联节点</summary>
+    /// <param name="app"></param>
+    /// <param name="inf"></param>
+    /// <param name="ip"></param>
+    /// <param name="clientId"></param>
+    /// <param name="token"></param>
+    /// <returns></returns>
+    public AppOnline SetOnline(App app, AppModel inf, String ip, String clientId, String token)
+    {
+        if (app == null) return null;
+
+        if (app.DisplayName.IsNullOrEmpty()) app.DisplayName = inf.AppName;
+        app.UpdateIP = ip;
+        app.Update();
+
+        if (!inf.ClientId.IsNullOrEmpty()) clientId = inf.ClientId;
+
+        // 更新在线记录
+        var (online, _) = appOnline.GetOnline(app, clientId, token, inf?.IP, ip);
+        if (online != null)
         {
-            if (dbs[i] == null) continue;
+            // 关联节点，根据NodeCode匹配，如果未匹配上，则在未曾关联节点时才使用IP匹配
+            var node = Node.FindByCode(inf.NodeCode);
+            if (node == null && online.NodeId == 0) node = Node.SearchByIP(inf.IP).FirstOrDefault();
+            if (node != null) online.NodeId = node.ID;
 
-            var rds = GetOrAdd(node, i);
-
-            // keys个数太大不支持扫描
-            if (rds.Count < 10000)
-            {
-                foreach (var item in rds.Search("*:Status:*", 1000))
-                {
-                    var ss = item.Split(":");
-                    var topic = ss.Take(ss.Length - 2).Join(":");
-                    if (topic.IsNullOrEmpty()) continue;
-
-                    // 可信队列
-                    {
-                        SaveQueue(node, i, queues, topic, "Queue");
-                    }
-
-                    // 延迟队列
-                    {
-                        topic += ":Delay";
-                        if (rds.ContainsKey(topic)) SaveQueue(node, i, queues, topic, "Delay");
-                    }
-                }
-            }
-            // 搜索RedisStream队列
-            if (rds.Count < 100)
-            {
-                foreach (var item in rds.Keys)
-                {
-                    var type = rds.Execute(item, (r, k) => r.Execute<String>("TYPE", k), false);
-                    if (type.EqualIgnoreCase("stream"))
-                    {
-                        SaveQueue(node, i, queues, item, type);
-                    }
-                }
-            }
+            if (!inf.Version.IsNullOrEmpty()) online.Version = inf.Version;
+            var compile = inf.Compile.ToDateTime().ToLocalTime();
+            if (compile.Year > 2000) online.Compile = compile;
         }
-    }
+        online.Update();
 
-    private void SaveQueue(RedisNode node, Int32 db, IList<RedisMessageQueue> queues, String topic, String type)
+        return online;
+    }
+    #endregion
+
+    #region 服务注册
+    public (AppService, Boolean changed) RegisterService(App app, Service service, PublishServiceInfo model, String ip)
     {
-        var mq = queues.FirstOrDefault(e => e.Db == db && e.Topic == topic);
-        if (mq == null)
+        var clientId = model.ClientId;
+        var localIp = clientId;
+        if (!localIp.IsNullOrEmpty())
         {
-            mq = new RedisMessageQueue
+            var p = localIp.IndexOf('@');
+            if (p > 0) localIp = localIp[..p];
+        }
+
+        // 单例部署服务，每个节点只有一个实例，使用本地IP作为唯一标识，无需进程ID，减少应用服务关联数
+        if (service.Singleton) clientId = localIp;
+
+        // 所有服务
+        var services = AppService.FindAllByService(service.Id);
+        var changed = false;
+        var svc = services.FirstOrDefault(e => e.AppId == app.Id && (e.Client == clientId || service.Singleton && !localIp.IsNullOrEmpty() && e.Client.StartsWith($"{localIp}@")));
+        if (svc == null)
+        {
+            svc = new AppService
             {
-                RedisId = node.Id,
-                Db = db,
-                Topic = topic,
-                Enable = true,
+                AppId = app.Id,
+                ServiceId = service.Id,
+                ServiceName = model.ServiceName,
+                Client = clientId,
+
+                CreateIP = ip,
             };
+            services.Add(svc);
 
-            queues.Add(mq);
+            changed = true;
+            WriteHistory(app, "RegisterService", true, $"注册服务[{model.ServiceName}] {model.ClientId}", ip, clientId);
         }
-
-        //mq.Enable = true;
-        if (mq.Name.IsNullOrEmpty()) mq.Name = topic;
-        if (mq.Category.IsNullOrEmpty()) mq.Category = node.Category;
-        if (mq.Type.IsNullOrEmpty()) mq.Type = type;
-
-        mq.Save();
-    }
-
-    private void DoTraceQueue(Object state)
-    {
-        var list = RedisMessageQueue.FindAll();
-        foreach (var item in list)
+        else
         {
-            if (item.Enable && item.Redis != null)
+            if (!svc.Enable)
             {
-                // 捕获异常，不要影响后续操作
-                var key = $"DoTraceQueue:{item.Id}";
-                var errors = _cache.Get<Int64>(key);
-                if (errors < 5)
-                {
-                    try
-                    {
-                        TraceQueue(item);
+                svc.Enable = app.AutoActive;
 
-                        _cache.Remove(key);
-                    }
-                    catch (Exception ex)
-                    {
-                        errors = _cache.Increment(key, 1);
-                        if (errors <= 1)
-                            _cache.SetExpire(key, TimeSpan.FromMinutes(10));
-
-                        XTrace.WriteException(ex);
-                    }
-                }
-                else
-                {
-                    item.Enable = false;
-
-                    _cache.Remove(key);
-                }
-
-                item.Update();
+                if (svc.Enable) changed = true;
             }
         }
-    }
 
-    public void TraceQueue(RedisMessageQueue queue)
-    {
-        if (queue.Topic.IsNullOrEmpty()) return;
+        // 节点信息
+        var olt = AppOnline.FindByClient(model.ClientId);
+        if (olt != null) svc.NodeId = olt.NodeId;
 
-        using var span = _tracer?.NewSpan($"RedisService-TraceQueue", queue);
+        // 作用域
+        if (service.UseScope)
+            svc.Scope = AppRule.CheckScope(-1, ip, localIp);
 
-        var rds = GetOrAdd(queue.Redis, queue.Db);
+        svc.Enable = app.AutoActive;
+        svc.PingCount++;
+        svc.Tag = model.Tag;
+        svc.Version = model.Version;
+        svc.OriginAddress = model.Address;
 
-        switch (queue.Type?.ToLower())
+        // 地址处理。本地任意地址，更换为IP地址
+        var serverAddress = "";
+        if (service.Extranet && ip != "127.0.0.1" && ip != "::1")
         {
-            case "queue":
-                {
-                    var mq = rds.GetQueue<Object>(queue.Topic);
-                    queue.Messages = mq.Count;
-
-                    var cs = rds.Search($"{queue.Topic}:Status:*", 1000).ToArray();
-                    queue.Consumers = cs.Length;
-
-                    if (cs.Length > 0)
-                    {
-                        var sts = rds.GetAll<RedisQueueStatus>(cs);
-                        if (sts != null)
-                        {
-                            queue.Total = sts.Sum(e => e.Value.Consumes);
-                            queue.FirstConsumer = sts.Min(e => e.Value.CreateTime);
-                            queue.LastActive = sts.Max(e => e.Value.LastActive);
-                            queue.Remark = sts.ToJson();
-                        }
-                    }
-                    else
-                    {
-                        queue.Enable = false;
-                    }
-                }
-                break;
-            case "delay":
-                {
-                    var mq = rds.GetDelayQueue<Object>(queue.Topic);
-                    queue.Messages = mq.Count;
-
-                    var topic = queue.Topic.TrimEnd(":Delay");
-                    //var st = rds.Get<RedisQueueStatus>(topic);
-
-                    var cs = rds.Search($"{topic}:Status:*", 1000).ToArray();
-                    queue.Consumers = cs.Length;
-
-                    if (cs.Length > 0)
-                    {
-                        var sts = rds.GetAll<RedisQueueStatus>(cs);
-                        if (sts != null)
-                        {
-                            queue.Total = sts.Sum(e => e.Value.Consumes);
-                            queue.FirstConsumer = sts.Min(e => e.Value.CreateTime);
-                            queue.LastActive = sts.Max(e => e.Value.LastActive);
-                            queue.Remark = sts.ToJson();
-                        }
-                    }
-                    else
-                    {
-                        queue.Enable = false;
-                    }
-                }
-                break;
-            case "stream":
-                {
-                    var mq = rds.GetStream<Object>(queue.Topic);
-                    //queue.Messages = mq.Count;
-                    queue.Total = mq.Count;
-
-                    var gs = mq.GetGroups();
-                    if (gs != null)
-                    {
-                        queue.Groups = gs.Join(",", e => e.Name);
-                        queue.Consumers = gs.Sum(e => e.Consumers);
-                        queue.Messages = gs.Sum(e => e.Pending);
-                        //queue.Remark = gs.ToJson();
-
-                        if (gs.Length > 0)
-                        {
-                            var dic = new Dictionary<String, Object>();
-                            foreach (var g in gs)
-                            {
-                                var cs = mq.GetConsumers(g.Name);
-                                if (cs != null && cs.Length > 0) dic.Add(g.Name, cs);
-                            }
-                            queue.ConsumerInfo = dic.ToJson();
-                        }
-                    }
-
-                    var inf = mq.GetInfo();
-                    if (inf != null)
-                    {
-                        if (!inf.FirstId.IsNullOrEmpty())
-                        {
-                            var p = inf.FirstId.IndexOf('-');
-                            var str = p > 0 ? inf.FirstId[..p] : inf.FirstId;
-                            queue.FirstConsumer = str.ToLong().ToDateTime().ToLocalTime();
-                        }
-                        if (!inf.LastId.IsNullOrEmpty())
-                        {
-                            var p = inf.LastId.IndexOf('-');
-                            var str = p > 0 ? inf.LastId[..p] : inf.LastId;
-                            queue.LastActive = str.ToLong().ToDateTime().ToLocalTime();
-                        }
-
-                        queue.Remark = inf.ToJson();
-                    }
-                }
-                break;
-            default:
-                break;
+            serverAddress = ip;
         }
+        else
+        {
+            serverAddress = model.IP;
+            if (serverAddress.IsNullOrEmpty()) serverAddress = localIp;
+            if (serverAddress.IsNullOrEmpty()) serverAddress = ip;
+        }
+
+        var urls = new List<String>();
+        foreach (var item in serverAddress.Split(","))
+        {
+            var addrs = model.Address
+                ?.Replace("://*", $"://{item}")
+                ?.Replace("://+", $"://{item}")
+                .Replace("://0.0.0.0", $"://{item}")
+                .Replace("://[::]", $"://{item}")
+                .Split(",");
+            if (addrs != null)
+            {
+                foreach (var elm in addrs)
+                {
+                    var url = elm;
+                    if (url.StartsWithIgnoreCase("http://", "https://")) url = new Uri(url).ToString().TrimEnd('/');
+                    if (!urls.Contains(url)) urls.Add(url);
+                }
+            }
+        }
+
+        if (service.Address.IsNullOrEmpty())
+        {
+            if (!model.ExternalAddress.IsNullOrEmpty())
+                svc.Address = model.ExternalAddress?.Split(',').Take(5).Join(",");
+            else
+                svc.Address = urls.Take(5).Join(",");
+        }
+        else
+        {
+            // 地址模版
+            var addr = service.Address.Replace("{LocalIP}", localIp).Replace("{IP}", ip);
+            if (addr.Contains("{Port}"))
+            {
+                var port = 0;
+                foreach (var item in urls)
+                {
+                    var p = item.IndexOf(":", "http://".Length);
+                    if (p >= 0)
+                    {
+                        port = item[(p + 1)..].TrimEnd('/').ToInt();
+                        if (port > 0) break;
+                    }
+                }
+                if (port > 0) addr = addr.Replace("{Port}", port + "");
+            }
+            svc.Address = addr;
+        }
+
+        // 无需健康监测，直接标记为健康
+        if (!model.Health.IsNullOrEmpty()) service.HealthAddress = model.Health;
+        if (!service.HealthCheck || service.HealthAddress.IsNullOrEmpty()) svc.Healthy = true;
+
+        svc.Save();
+
+        service.Providers = services.Count;
+        service.Save();
+
+        // 如果有改变，异步监测健康状况
+        if (changed && service.HealthCheck && !service.HealthAddress.IsNullOrEmpty())
+        {
+            _ = Task.Run(() => HealthCheck(svc));
+        }
+
+        return (svc, changed);
     }
+
+    public async Task HealthCheck(AppService svc)
+    {
+        var url = svc.Service?.HealthAddress;
+        if (url.IsNullOrEmpty()) return;
+
+        try
+        {
+            if (!url.StartsWithIgnoreCase("http://", "https://"))
+            {
+                var ss = svc.Address.Split(',');
+                var uri = new Uri(new Uri(ss[0]), url);
+                url = uri.ToString();
+            }
+
+            var http = tracer.CreateHttpClient();
+            var rs = await http.GetStringAsync(url);
+
+            svc.Healthy = true;
+            svc.CheckResult = rs;
+        }
+        catch (Exception ex)
+        {
+            svc.Healthy = false;
+            svc.CheckResult = ex.ToString();
+
+            XTrace.WriteLine("HealthCheck: {0}", url);
+            XTrace.Log.Error(ex.Message);
+        }
+
+        svc.CheckTimes++;
+        svc.LastCheck = DateTime.Now;
+        svc.Update();
+    }
+
+    public (AppService, Boolean changed) UnregisterService(App app, Service info, PublishServiceInfo model, String ip)
+    {
+        // 单例部署服务，每个节点只有一个实例，使用本地IP作为唯一标识，无需进程ID，减少应用服务关联数
+        var clientId = model.ClientId;
+        if (info.Singleton && !clientId.IsNullOrEmpty())
+        {
+            var p = clientId.IndexOf('@');
+            if (p > 0) clientId = clientId[..p];
+        }
+
+        // 所有服务
+        var services = AppService.FindAllByService(info.Id);
+        var changed = false;
+        var svc = services.FirstOrDefault(e => e.AppId == app.Id && e.Client == clientId);
+        if (svc != null)
+        {
+            //svc.Delete();
+            svc.Enable = false;
+            svc.Healthy = false;
+            svc.Update();
+
+            services.Remove(svc);
+
+            changed = true;
+            WriteHistory(app, "UnregisterService", true, $"服务[{model.ServiceName}]下线 {svc.Client}", ip, svc.Client);
+        }
+
+        info.Providers = services.Count;
+        info.Save();
+
+        return (svc, changed);
+    }
+
+    public ServiceModel[] ResolveService(Service service, ConsumeServiceInfo model, String scope)
+    {
+        var list = new List<ServiceModel>();
+        var tags = model.Tag?.Split(",");
+
+        // 该服务所有生产
+        var services = AppService.FindAllByService(service.Id);
+        foreach (var item in services)
+        {
+            // 启用，匹配规则，健康
+            if (item.Enable && item.Healthy && item.Match(model.MinVersion, scope, tags))
+            {
+                list.Add(item.ToModel());
+            }
+        }
+
+        return list.ToArray();
+    }
+    #endregion
+
+    #region 心跳保活
+    public IOnlineModel Ping(DeviceContext context, IPingRequest request)
+    {
+        var app = context.Device as App;
+        if (app == null) return null;
+
+        // 更新在线记录
+        var inf = request as AppInfo;
+        var (online, _) = appOnline.GetOnline(app, context.ClientId, context.Token, inf?.IP, context.UserHost);
+        if (online != null)
+        {
+            //online.Version = app.Version;
+            online.Fill(app, inf);
+            online.SaveAsync();
+        }
+
+        //// 保存性能数据
+        //AppMeter.WriteData(app, inf, "Ping", clientId, ip);
+
+        return online;
+    }
+
+    private static Int32 _totalCommands;
+    private static IList<AppCommand> _commands;
+    private static DateTime _nextTime;
+
+    public CommandModel[] AcquireAppCommands(Int32 appId)
+    {
+        // 缓存最近1000个未执行命令，用于快速过滤，避免大量节点在线时频繁查询命令表
+        if (_nextTime < DateTime.Now || _totalCommands != AppCommand.Meta.Count)
+        {
+            _totalCommands = AppCommand.Meta.Count;
+            _commands = AppCommand.AcquireCommands(-1, 1000);
+            _nextTime = DateTime.Now.AddMinutes(1);
+        }
+
+        // 是否有本节点
+        if (!_commands.Any(e => e.AppId == appId)) return null;
+
+        using var span = tracer?.NewSpan(nameof(AcquireAppCommands), new { appId });
+
+        var cmds = AppCommand.AcquireCommands(appId, 100);
+        if (cmds.Count == 0) return null;
+
+        var rs = new List<CommandModel>();
+        foreach (var item in cmds)
+        {
+            // 命令要提前下发，在客户端本地做延迟处理，这里不应该过滤掉
+            //// 命令是否已经开始
+            //if (item.StartTime > DateTime.Now) continue;
+
+            // 带有过期时间的命令，加大重试次数
+            var maxTimes = item.Expire.Year > 2000 ? 100 : 10;
+            if (item.Times > maxTimes || item.Expire.Year > 2000 && item.Expire < DateTime.Now)
+                item.Status = CommandStatus.取消;
+            else
+            {
+                // 如果命令正在处理中，则短期内不重复下发
+                if (item.Status == CommandStatus.处理中 && item.UpdateTime.AddSeconds(30) > DateTime.Now) continue;
+
+                // 即时指令，或者已到开始时间的未来指令，才增加次数
+                if (item.StartTime.Year < 2000 || item.StartTime < DateTime.Now)
+                    item.Times++;
+                item.Status = CommandStatus.处理中;
+
+                var commandModel = BuildCommand(item.App, item);
+
+                rs.Add(commandModel);
+            }
+            item.UpdateTime = DateTime.Now;
+        }
+        cmds.Update(false);
+
+        return rs.ToArray();
+    }
+
+    /// <summary>设置设备的长连接上线/下线</summary>
+    /// <param name="context">上下文</param>
+    /// <param name="online"></param>
+    /// <returns></returns>
+    public IOnlineModel SetOnline(DeviceContext context, Boolean online)
+    {
+        if (context.Device is not App app) return null;
+
+        // 上线打标记
+        var (olt, _) = appOnline.GetOnline(app, null, context.Token, null, context.UserHost);
+        if (olt != null)
+        {
+            olt.WebSocket = online;
+            olt.Update();
+        }
+
+        return olt;
+    }
+    #endregion
+
+    #region 下行通知
+    /// <summary>向应用发送命令</summary>
+    /// <param name="app">应用</param>
+    /// <param name="clientId">应用实例标识。向特定应用实例发送命令时指定</param>
+    /// <param name="model">命令模型</param>
+    /// <param name="user">创建者</param>
+    /// <returns></returns>
+    public async Task<AppCommand> SendCommand(App app, String clientId, CommandInModel model, String user)
+    {
+        //if (model.Code.IsNullOrEmpty()) throw new ArgumentNullException(nameof(model.Code), "必须指定应用");
+        if (model.Command.IsNullOrEmpty()) throw new ArgumentNullException(nameof(model.Command));
+
+        var cmd = new AppCommand
+        {
+            AppId = app.Id,
+            Command = model.Command,
+            Argument = model.Argument,
+            //Expire = model.Expire,
+            TraceId = DefaultSpan.Current?.TraceId,
+
+            CreateUser = user,
+        };
+        if (model.StartTime > 0) cmd.StartTime = DateTime.Now.AddSeconds(model.StartTime);
+        if (model.Expire > 0) cmd.Expire = DateTime.Now.AddSeconds(model.Expire);
+        cmd.Insert();
+
+        // 分发命令给该应用的所有实例
+        var cmdModel = BuildCommand(app, cmd);
+        var ts = new List<Task>();
+        foreach (var item in AppOnline.FindAllByApp(app.Id))
+        {
+            // 对特定实例发送
+            if (!clientId.IsNullOrEmpty() && item.Client != clientId) continue;
+
+            //_queue.Publish(app.Name, item.Client, cmdModel);
+            var code = $"{app.Name}@{item.Client}";
+            ts.Add(sessionManager.PublishAsync(code, cmdModel, null, default));
+        }
+        Task.WaitAll(ts.ToArray());
+
+        // 挂起等待。借助redis队列，等待响应
+        if (model.Timeout > 0)
+        {
+            var q = queue.GetReplyQueue(cmd.Id);
+            var reply = await q.TakeOneAsync(model.Timeout);
+            if (reply != null)
+            {
+                // 埋点
+                using var span = tracer?.NewSpan($"mq:AppCommandReply", reply);
+
+                if (reply.Status == CommandStatus.错误)
+                    throw new Exception($"命令错误！{reply.Data}");
+                else if (reply.Status == CommandStatus.取消)
+                    throw new Exception($"命令已取消！{reply.Data}");
+            }
+        }
+
+        return cmd;
+    }
+
+    /// <summary>向应用发送命令</summary>
+    /// <param name="app">应用</param>
+    /// <param name="clientId">应用实例标识。向特定应用实例发送命令时指定</param>
+    /// <param name="command">命令</param>
+    /// <param name="argument">参数</param>
+    /// <param name="user"></param>
+    /// <returns></returns>
+    public async Task<AppCommand> SendCommand(App app, String clientId, String command, String argument, Int32 expire = 0, String user = null)
+    {
+        var model = new CommandInModel
+        {
+            Command = command,
+            Argument = argument,
+            Expire = expire,
+        };
+        return await SendCommand(app, clientId, model, user);
+    }
+
+    public Task<Int32> SendCommand(IDeviceModel device, CommandModel command, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+    public Int32 CommandReply(DeviceContext context, CommandReplyModel model)
+    {
+        var app = context.Device as App;
+        var cmd = AppCommand.FindById((Int32)model.Id);
+        if (cmd == null) return 0;
+
+        // 防止越权
+        if (cmd.AppId != app.Id) throw new ApiException(ApiCode.Forbidden, $"[{app}]越权访问[{cmd.AppName}]的服务");
+
+        cmd.Status = model.Status;
+        cmd.Result = model.Data;
+        cmd.Update();
+
+        // 推入服务响应队列，让服务调用方得到响应
+        var topic = $"appreply:{model.Id}";
+        var q = cacheProvider.GetQueue<CommandReplyModel>(topic);
+        q.Add(model);
+
+        // 设置过期时间，过期自动清理
+        cacheProvider.Cache.SetExpire(topic, TimeSpan.FromSeconds(60));
+
+        return 1;
+    }
+
+    /// <summary>通知该服务的所有消费者，服务信息有变更</summary>
+    /// <param name="service"></param>
+    /// <param name="command"></param>
+    /// <param name="user"></param>
+    public async Task NotifyConsumers(AppService service, String command, String user = null)
+    {
+        var list = AppConsume.FindAllByService(service.ServiceId);
+        if (list.Count == 0) return;
+
+        // 获取所有订阅该服务的应用，可能相同应用多实例订阅，需要去重
+        var appIds = list.Select(e => e.AppId).Distinct().ToArray();
+        var arguments = new { service.AppName, service.ServiceName, service.Address }.ToJson();
+
+        using var span = tracer?.NewSpan(nameof(NotifyConsumers), $"{command} appIds={appIds.Join()} user={user} arguments={arguments}");
+
+        var ts = new List<Task>();
+        foreach (var item in appIds)
+        {
+            var app = App.FindById(item);
+            if (app != null) ts.Add(SendCommand(app, null, command, arguments, 600, user));
+        }
+
+        await Task.WhenAll(ts);
+    }
+
+    //private static Version _version = new(3, 1, 2025, 0103);
+    private CommandModel BuildCommand(App app, AppCommand cmd)
+    {
+        var model = cmd.ToModel();
+        model.TraceId = DefaultSpan.Current + "";
+
+        // 新版本使用UTC时间
+        if (app.Compile.Year >= 2025)
+        {
+            if (model.StartTime.Year > 2000)
+                model.StartTime = model.StartTime.ToUniversalTime();
+            if (model.Expire.Year > 2000)
+                model.Expire = model.Expire.ToUniversalTime();
+        }
+
+        return model;
+    }
+    #endregion
+
+    #region 事件上报
+    public Int32 PostEvents(DeviceContext context, EventModel[] events)
+    {
+        var app = context.Device as App;
+        var clientId = "";
+
+        var ip = context.UserHost;
+        var olt = AppOnline.FindByClient(clientId);
+        var his = new List<AppHistory>();
+        foreach (var model in events)
+        {
+            //WriteHistory(model.Name, !model.Type.EqualIgnoreCase("error"), model.Time.ToDateTime().ToLocalTime(), model.Remark, null);
+            var success = !model.Type.EqualIgnoreCase("error");
+            var time = model.Time.ToDateTime().ToLocalTime();
+            var hi = AppHistory.Create(app, model.Name, success, model.Remark, olt?.Version, Environment.MachineName, ip);
+            hi.Client = clientId;
+            if (time.Year > 2000) hi.CreateTime = time;
+            his.Add(hi);
+        }
+
+        his.Insert();
+
+        return events.Length;
+    }
+    #endregion
+
+    #region 辅助
+    public IDeviceModel QueryDevice(String code) => App.FindByName(code);
+
+    public void WriteHistory(IDeviceModel device, String action, Boolean success, String remark, String ip) => WriteHistory(device as App, action, success, remark, ip, null);
+
+    private void WriteHistory(App app, String action, Boolean success, String remark, String ip, String clientId)
+    {
+        var olt = AppOnline.FindByClient(clientId);
+        var version = olt?.Version;
+
+        var hi = AppHistory.Create(app, action, success, remark, version, Environment.MachineName, ip);
+        hi.Client = clientId;
+        hi.Insert();
+    }
+
+    /// <summary>写设备历史</summary>
+    /// <param name="context">上下文</param>
+    /// <param name="action">动作</param>
+    /// <param name="success">成功</param>
+    /// <param name="remark">备注内容</param>
+    public void WriteHistory(DeviceContext context, String action, Boolean success, String remark)
+    {
+        var version = (context.Online as AppOnline)?.Version;
+        var hi = AppHistory.Create(context.Device as App, action, success, remark, version, Environment.MachineName, context.UserHost);
+        hi.Client = context.ClientId;
+        hi.Insert();
+    }
+
+    IUpgradeInfo IDeviceService.Upgrade(DeviceContext context, String channel) => throw new NotImplementedException();
+    #endregion
 }
