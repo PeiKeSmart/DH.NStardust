@@ -40,20 +40,20 @@
     <Compile Include="..\Stardust.Server\Services\ApolloService.cs" Link="Services\ApolloService.cs" />
     <Compile Include="..\Stardust.Server\Services\AppDayStatService.cs" Link="Services\AppDayStatService.cs" />
     <Compile Include="..\Stardust.Server\Services\AppOnlineService.cs" Link="AppOnlineService.cs" />
+    <Compile Include="..\Stardust.Server\Services\AppTokenService.cs" Link="Services\AppTokenService.cs" />
     <Compile Include="..\Stardust.Server\Services\ConfigService.cs" Link="Services\ConfigService.cs" />
     <Compile Include="..\Stardust.Server\Services\NodeStatService.cs" Link="Services\NodeStatService.cs" />
     <Compile Include="..\Stardust.Server\Services\RedisService.cs" Link="Services\RedisService.cs" />
-    <Compile Include="..\Stardust.Server\Services\TokenService.cs" Link="Services\TokenService.cs" />
     <Compile Include="..\Stardust.Server\Services\TraceItemStatService.cs" Link="Services\TraceItemStatService.cs" />
     <Compile Include="..\Stardust.Server\Services\TraceStatService.cs" Link="Services\TraceStatService.cs" />
     <Compile Include="..\Stardust.Server\Setting.cs" Link="Setting.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NIP" Version="4.13.2025.818-beta0355" />
+    <PackageReference Include="DH.NIP" Version="4.13.2025.902-beta1246" />
     <PackageReference Include="DH.NRedis" Version="4.14.2025.826-beta0407" />
-    <PackageReference Include="DH.NRemoting.Extensions" Version="4.14.2025.826-beta0653" />
-    <PackageReference Include="DH.NCube.Core" Version="4.11.2025.818-beta0901" />
+    <PackageReference Include="DH.NRemoting.Extensions" Version="4.14.2025.903-beta1140" />
+    <PackageReference Include="DH.NCube.Core" Version="4.11.2025.826-beta0719" />
   </ItemGroup>
 
   <ItemGroup>

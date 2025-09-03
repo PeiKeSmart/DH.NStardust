@@ -47,7 +47,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NCode" Version="4.14.2025.826-beta0159" />
+    <PackageReference Include="DH.NCode" Version="4.14.2025.902-beta1235" />
   </ItemGroup>
 
   <ItemGroup>
