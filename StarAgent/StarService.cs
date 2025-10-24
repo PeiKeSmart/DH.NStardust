@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+
 using NewLife;
 using NewLife.Agent;
 using NewLife.Data;
@@ -9,6 +10,7 @@ using NewLife.Net;
 using NewLife.Remoting;
 using NewLife.Remoting.Models;
 using NewLife.Threading;
+
 using Stardust;
 using Stardust.Managers;
 using Stardust.Models;
@@ -259,10 +261,10 @@ public class StarService : DisposeBase, IApi
         {
             // 使用共同的重启逻辑
             var success = InternalRestartService(Manager, serviceName, "API调用重启");
-            
+
             // 根据结果提供更详细的信息
             var message = success ? "服务重启成功" : GetRestartFailureMessage(Manager, serviceName);
-            
+
             return new ServiceOperationResult
             {
                 Success = success,
@@ -288,7 +290,7 @@ public class StarService : DisposeBase, IApi
         {
             return "服务不存在";
         }
-        
+
         var isRunning = manager.RunningServices?.Any(e => e.Name.EqualIgnoreCase(serviceName)) == true;
         if (isRunning)
         {
@@ -473,7 +475,7 @@ public class StarService : DisposeBase, IApi
                     XTrace.WriteLine("进程[{0}/{1}]超过一定时间没有心跳，可能已经假死，准备重启。", p.ProcessName, p.Id);
 
                     var restartSuccess = false;
-                    
+
                     // 优先尝试通过服务重启
                     if (state is ServiceManager manager)
                     {
@@ -485,10 +487,10 @@ public class StarService : DisposeBase, IApi
                             {
                                 XTrace.WriteLine("尝试通过服务重启：{0}", controller.Name);
                                 span?.AppendTag($"RestartService {controller.Name}");
-                                
+
                                 // 使用共同的重启逻辑
                                 restartSuccess = InternalRestartService(manager, controller.Name, "看门狗重启");
-                                
+
                                 if (restartSuccess)
                                 {
                                     XTrace.WriteLine("服务[{0}]重启成功", controller.Name);
@@ -504,7 +506,7 @@ public class StarService : DisposeBase, IApi
                             XTrace.WriteException(ex);
                         }
                     }
-                    
+
                     // 如果服务重启失败，则使用原有的SafetyKill方法
                     if (!restartSuccess)
                     {
@@ -567,12 +569,12 @@ public class StarService : DisposeBase, IApi
         if (manager == null || serviceName.IsNullOrEmpty()) return false;
 
         using var span = DefaultTracer.Instance?.NewSpan(nameof(InternalRestartService), new { serviceName, reason });
-        
+
         try
         {
             // 检查服务是否存在
             var service = manager.Services?.FirstOrDefault(e => e.Name.EqualIgnoreCase(serviceName));
-            if (service == null) 
+            if (service == null)
             {
                 XTrace.WriteLine("服务重启失败：服务[{0}]不存在", serviceName);
                 span?.AppendTag("ServiceNotFound");
@@ -590,9 +592,9 @@ public class StarService : DisposeBase, IApi
                 // 服务正在运行，先停止服务
                 XTrace.WriteLine("停止服务[{0}]", serviceName);
                 span?.AppendTag("StopService");
-                
+
                 var stopResult = manager.Stop(serviceName, reason);
-                if (stopResult != true) 
+                if (stopResult != true)
                 {
                     XTrace.WriteLine("服务重启失败：无法停止服务[{0}]", serviceName);
                     span?.AppendTag("StopFailed");
@@ -608,11 +610,11 @@ public class StarService : DisposeBase, IApi
                 XTrace.WriteLine("服务[{0}]未运行，直接启动", serviceName);
                 span?.AppendTag("DirectStart");
             }
-            
+
             // 启动服务（无论之前是否运行）
             XTrace.WriteLine("启动服务[{0}]", serviceName);
             span?.AppendTag("StartService");
-            
+
             var startResult = manager.Start(serviceName);
             if (startResult == true)
             {
