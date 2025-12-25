@@ -1,5 +1,4 @@
-﻿using System.Xml.Linq;
-using NewLife;
+﻿using NewLife;
 using NewLife.Caching;
 using NewLife.Log;
 using NewLife.Remoting;
@@ -297,6 +296,7 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
         svc.Tag = model.Tag;
         svc.Version = model.Version;
         svc.OriginAddress = model.Address;
+        svc.ExternalAddress = model.ExternalAddress;
 
         // 地址处理。本地任意地址，更换为IP地址
         var serverAddress = "";
