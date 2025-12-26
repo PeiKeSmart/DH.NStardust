@@ -123,7 +123,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="DH.NCore" Version="4.16.2025.1225-beta0826" />
-    <PackageReference Include="DH.NRemoting" Version="4.16.2025.1113" />
+    <PackageReference Include="DH.NRemoting" Version="4.16.2025.1226-beta0350" />
   </ItemGroup>
 
 </Project>
