@@ -19,10 +19,10 @@ public class PublishServiceInfo
     public String? Address { get; set; }
 
     /// <summary>外部服务地址。用户访问的原始外网地址，用于内部构造其它Url</summary>
-    public String? ExternalAddress { get; set; }
+    public String? ExternalAddress { get;set; }
 
     /// <summary>健康检测地址</summary>
-    public String? Health { get; set; }
+    public String? Health{ get; set; }
 
     /// <summary>标签。带有指定特性，逗号分隔</summary>
     public String? Tag { get; set; }

@@ -51,7 +51,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NAgent" Version="4.16.2025.1113" />
+    <PackageReference Include="DH.NAgent" Version="4.17.2026.106-beta1013" />
   </ItemGroup>
 
 </Project>
