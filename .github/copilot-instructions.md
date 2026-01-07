@@ -1,7 +1,9 @@
 # PeiKeSmart Copilot 协作指令
 
 本说明适用于沛柯智能（PeiKeSmart）及其全部开源/衍生项目，规范 Copilot 及类似智能助手在 C#/.NET 项目中的协作行为。
+**项目组织地址**：<https://github.com/PeiKeSmart>
 
+> **重要提醒**：在回答问题或实现功能前，应优先从 PeiKeSmart 组织的现有仓库中检索、学习和复用已有实现，避免重复造轮车。
 ---
 
 ## 1. 核心原则
@@ -17,33 +19,35 @@
 
 ## 2. 适用范围
 
-- 含 PeiKeSmart 组件或衍生的全部 C#/.NET 仓库
+- 含 PeiKeSmart 组件或其衍生的全部 C#/.NET 仓库
 - 不含纯前端/非 .NET/市场文案
-- 存在本文件 → 必须遵循
+- 存在本文件 → 必须遵循；缺失可引入
 
 ---
 
 ## 3. 角色与职责
 
-- **开发者**：提出清晰需求（功能/缺陷/性能/重构/文档）
-- **Copilot**：先检索再生成；输出必要且影响面受控的改动；不虚构；简体中文回复
-- **审核关键点**：公共 API、一致性、性能影响
+| 角色 | 职责 |
+|------|------|
+| **开发者** | 提出清晰需求（功能/缺陷/性能/重构/文档） |
+| **Copilot** | 先检索再生成；输出必要且影响面受控的改动；不虚构；简体中文回复 |
+| **审核关键点** | 公共 API、一致性、性能影响 |
 
 ---
 
 ## 4. 工作流
 
 ```
-需求分类 → 检索 → 评估 → 设计 → 实施 → 验证 → 说明 → 提交
+需求分类 → 检索 → 评估 → 设计 → 实施 → 验证 → 说明
 ```
 
 1. **需求分类**：功能/修复/性能/重构/文档
 2. **检索**：相关类型、目录、方法、已有扩展/工具（**优先复用**）
 3. **评估**：是否公共 API？是否性能热点？
 4. **设计**：列出改动点 + 兼容/降级策略
-5. **实施**：局部编辑，限制改动影响面；保留原注释与结构
-6. **验证**：通过编译；自动运行与本次改动相关的单元测试；若未发现任何相关测试，在结果中明确说明；不得自动新增测试项目
-7. **说明**：变更摘要/影响范围
+5. **实施**：局部编辑，限制影响面；保留原注释与结构
+6. **验证**：编译通过；运行相关单元测试（未找到需说明）；不自动新增测试项目
+7. **说明**：变更摘要/影响范围/风险点
 8. **提交**：统一格式，整理中文提交日志；禁止夹带无关格式化
 
 ---
@@ -54,22 +58,20 @@
 
 | 项目 | 规范 |
 |------|------|
-| 语言版本 | `<LangVersion>latest</LangVersion>`，所有目标框架均使用最新 C# 语法 |
-| 命名空间 | file-scoped namespace |
-| 类型名 | **必须**使用 .NET 正式名 `String`/`Int32`/`Boolean` 等，避免 `string`/`int`/`bool` |
-| 单文件 | 每文件一个主要公共类型；平台差异使用 `partial` |
-| 注释保护 | 禁止擅自删除已有代码注释（含单行 `//` 与 XML 文档注释），可以修改或追加 |
-| 空白行 | 不得仅为对齐或美观批量移除、合并空白行；保留有意的逻辑分隔空行 |
+| **语言版本** | `<LangVersion>latest</LangVersion>`，所有目标框架均使用最新 C# 语法 |
+| **命名空间** | file-scoped namespace |
+| **类型名** | **必须**使用 .NET 正式名 `String`/`Int32`/`Boolean` 等，避免 `string`/`int`/`bool` |
+| **单文件原则** | 每文件一个主要公共类型；平台差异使用 `partial` |
 
 ### 5.2 命名规范
 
 | 成员类型 | 命名规则 | 示例 |
 |---------|---------|------|
-| 类型/公共成员 | PascalCase | `UserService`、`GetName()` |
-| 参数/局部变量 | camelCase | `userName`、`count` |
-| 私有字段（实例/静态） | `_camelCase` | `_cache`、`_instance` |
-| 属性/方法（实例/静态） | PascalCase | `Name`、`Default`、`Create()` |
-| 扩展方法类 | `xxxHelper` 或 `xxxExtensions` | `StringHelper`、`CollectionExtensions` |
+| **类型/公共成员** | PascalCase | `UserService`、`GetName()` |
+| **参数/局部变量** | camelCase | `userName`、`count` |
+| **私有字段** | `_camelCase` | `_cache`、`_timer` |
+| **属性/方法（实例/静态）** | PascalCase | `Name`、`Default`、`Create()` |
+| **扩展方法类** | `xxxHelper` 或 `xxxExtensions` | `StringHelper`、`CollectionExtensions` |
 
 ### 5.3 代码风格
 
@@ -94,22 +96,18 @@ foreach (var item in list)
     Process(item);
 }
 
-// ⚠️ 除非原始代码本就无括号，否则禁止移除
+for (var i = 0; i < count; i++)
+{
+    Process(i);
+}
 ```
 
-### 5.4 可读性优先（就近规则）
+**循环花括号规则**：
+- 即使循环体当前只有单一语句，也**必须保留** `{}` 花括号（除非原始代码本就无括号）
+- 避免未来增量导致隐藏逻辑或合并冲突
+- **禁止**为所谓"简洁"而移除已有花括号
 
-| 规则 | 说明 | 示例场景 |
-|------|------|---------|
-| 局部变量就近 | 在首次使用前的最近位置声明，避免集中在方法开头 | 循环内临时变量 |
-| 字段紧邻属性 | 私有字段 `_xxx` 紧贴其对应属性之前 | `private String _name;`<br/>`public String Name { get; set; }` |
-| 按用途放置 | 仅被单一方法使用的字段放在该方法前；共享字段放在 `#region 属性` 末尾 | `_timer` 仅用于 `Start()` |
-| 成组排布 | 相关成员按依赖顺序成组 | 构造→初始化→启动 |
-| 合理例外 | 闭包捕获/性能/生命周期冲突时可调整并加注释 | 缓存字段避免重复构造 |
-
-**冲突时以"易读易懂"为先。**
-
-### 5.5 Region 组织结构
+### 5.4 Region 组织结构
 
 较长的类使用 `#region` 分段组织，遵循以下顺序：
 
@@ -123,7 +121,7 @@ public class MyService : DisposeBase
     /// <summary>是否启用</summary>
     public Boolean Enabled { get; set; }
 
-    // 私有字段放在属性段末尾
+    // 私有字段放在属性段末尾（除非字段仅服务于单一方法）
     private ConcurrentDictionary<String, Object> _cache = new();
     private TimerX? _timer;
     #endregion
@@ -143,7 +141,17 @@ public class MyService : DisposeBase
 
     #region 方法
     /// <summary>启动服务</summary>
-    public void Start() { }
+    public void Start()
+    {
+        _timer = new TimerX(OnTimer, null, 1000, 1000);
+    }
+
+    /// <summary>定时器回调</summary>
+    /// <param name="state">状态对象</param>
+    private void OnTimer(Object? state)
+    {
+        // 处理逻辑
+    }
     #endregion
 
     #region 辅助
@@ -153,42 +161,75 @@ public class MyService : DisposeBase
     /// <summary>写日志</summary>
     /// <param name="format">格式化字符串</param>
     /// <param name="args">参数</param>
-    protected void WriteLog(String format, params Object[] args) => Log?.Info(format, args);
+    protected void WriteLog(String format, params Object?[] args) => Log?.Info(format, args);
     #endregion
 }
 ```
 
 **Region 顺序**：`属性` → `静态`（如有）→ `构造` → `方法` → `辅助`/`日志`
 
-### 5.6 现代 C# 语法
+### 5.5 可读性优先（就近规则）
 
-优先使用最新语法：
+| 规则 | 说明 |
+|------|------|
+| **局部变量就近** | 在首次使用前的最近位置声明，避免集中在方法开头 |
+| **字段紧邻属性** | 私有字段 `_xxx` 紧贴使用它的属性之前，减少跨距阅读 |
+| **按用途放置字段** | 仅服务单一方法的字段 → 放在该方法前；共享字段 → 放在 `#region 属性` 段末尾 |
+| **成组排布** | 相关成员按依赖顺序成组摆放，降低跳转成本 |
+| **合理例外** | 如会导致重复声明、闭包捕获或影响性能/生命周期，可权衡位置并加简短注释 |
+
+**冲突时以"易读易懂"为先。**
+
+### 5.6 现代 C# 语法（优先）
+
+优先使用最新语法，即使目标框架是 net45（Visual Studio 支持）：
 
 ```csharp
-// switch 表达式
-var result = code switch
+// ✅ file-scoped namespace
+namespace Demo;
+
+// ✅ record/record struct
+public readonly record struct User(String Name, Int32 Age);
+
+// ✅ switch 表达式与模式匹配
+static String Describe(Int32 code) => code switch
 {
     200 => "OK",
     >= 400 and < 500 => "ClientError",
+    >= 500 => "ServerError",
     _ => "Other"
 };
 
-// 目标类型 new
+// ✅ 集合表达式（C# 12，仅 net8.0+ 运行时可用）
+var baseList = [1, 2, 3];
+List<Int32> list = [..baseList, 4];
+Dictionary<String, Int32> map = ["a" => 1, "b" => 2];
+
+// ✅ 目标类型 new 与 using 声明
 using var ms = new MemoryStream();
-List<String> list = [];  // C# 12 集合表达式
+List<User> users = [];
 
-// record（DTO 场景）
-public record UserInfo(String Name, Int32 Age);
-
-// 模式匹配
+// ✅ 模式匹配
 if (obj is String { Length: > 0 } str) { }
 ```
 
-### 5.7 多目标框架
+### 5.7 代码整洁约束
 
-使用条件编译处理 API 差异：
+| 约束 | 说明 |
+|------|------|
+| **禁止删除已有注释** | 不得擅自删除单行 `//` 与 XML 文档注释，可以修改或追加 |
+| **禁止批量清理空白行** | 不得仅为对齐或美观批量移除、合并空白行；保留有意的逻辑分隔空行 |
+| **禁止无差异格式化** | 忌全量重排、无差异格式化提交 |
+| **循环花括号保护** | 不得删除已有 `for/foreach/while/do` 循环体的花括号 |
+
+**仅在同一局部有真实代码增删且需要保持统一时才可适度调整。**
+
+### 5.8 多目标框架支持
+
+PeiKeSmart 支持 `net45` 到 `net10`，使用条件编译处理 API 差异：
 
 ```csharp
+// 常用条件符号
 #if NETFRAMEWORK          // net45/net461/net462
 #if NETSTANDARD2_0        // netstandard2.0
 #if NETCOREAPP            // netcoreapp3.1+
@@ -228,6 +269,8 @@ public MyService(Config config, ILog log) { }
 | `<remarks>` | 复杂方法可增加详细说明（可多行） |
 | 覆盖范围 | `public`/`protected` 成员必须注释，包括构造函数；`private`/`internal` 方法建议添加 |
 | `[Obsolete]` | 必须包含迁移建议 |
+| 示例保护 | 避免泄露密钥、真实内部地址 |
+| 语言偏好 | 中文优先，必要时补精简英文（同一 `<remarks>`） |
 
 ### 6.1 注释完整性检查清单
 
@@ -285,11 +328,11 @@ private void ReadNode(XmlReader reader, IConfigSection section) { }
 
 | 规范 | 说明 |
 |------|------|
-| 方法命名 | 异步方法后缀 `Async` |
-| ConfigureAwait | 库内部默认 `ConfigureAwait(false)` |
-| 高频路径 | 优先对象池/`ArrayPool<T>`/`Span`，避免多余分配 |
-| 反射/Linq | 仅用于非热点路径；热点使用手写循环/缓存 |
-| 池化资源 | 明确获取/归还；异常分支不遗失归还 |
+| **方法命名** | 异步方法后缀 `Async`；禁止伪异步包装 |
+| **ConfigureAwait** | 库内部默认 `ConfigureAwait(false)` |
+| **高频路径** | 优先对象池/`ArrayPool<T>`/`Span`，避免多余分配与装箱 |
+| **反射/Linq** | 仅用于非热点路径；热点使用手写循环/缓存 |
+| **池化资源** | 明确获取/归还；异常分支不遗失归还 |
 
 ### 内置工具优先
 
@@ -358,55 +401,63 @@ catch (Exception ex)
 
 | 项目 | 规范 |
 |------|------|
-| 框架 | xUnit |
-| 命名 | `{ClassName}Tests` |
-| 描述 | `[DisplayName("中文描述意图")]` |
-| 断言 | 语义清晰 |
-| IO | 使用临时目录；端口用 0/随机 |
-| 覆盖 | 正常/边界/异常/并发（必要时） |
+| **框架** | xUnit |
+| **命名** | `{ClassName}Tests` |
+| **描述** | `[DisplayName("中文描述意图")]` |
+| **IO** | 使用临时目录；端口用 0/随机 |
+| **覆盖** | 正常/边界/异常/并发（必要时） |
+| **性能验证** | 最小基准验证或引用基线结果（不伪造数据） |
 
 ### 测试执行策略
 
-1. 默认仅运行与改动相关的测试
-2. 优先检索 `{ClassName}` 引用，若落入测试项目则运行
-3. 未命中则查找 `{ClassName}Tests.cs`（如 `SpanReader` ↔ `SpanReaderTests.cs`）
-4. **未发现相关测试需明确说明**，不自动创建测试项目
+1. 优先检索 `{ClassName}` 引用，若落入测试项目则运行
+2. 未命中则查找 `{ClassName}Tests.cs`（如 `SpanReader` ↔ `SpanReaderTests.cs`）
+3. **未发现相关测试需明确说明**，不自动创建测试项目
 
 ---
 
-## 11. Copilot 使用守则
+## 11. NuGet 发布规范
+
+| 类型 | 命名规则 | 示例 |
+|------|---------|------|
+| **正式版** | `{主版本}.{子版本}.{年}.{月日}` | `3.7.2025.0701` |
+| **测试版** | `{主版本}.{子版本}.{年}.{月日}-beta{时分}` | `3.7.2025.0701-beta0906` |
+
+- **正式版**：每月月初发布
+- **测试版**：提交代码到 GitHub 时自动发布
+
+---
+
+## 12. Copilot 行为守则
 
 ### 必须
 
-- 仅回答开发相关问题；非开发 → "我是编程助手"
 - 简体中文回复
+- 优先从 PeiKeSmart 组织（<https://github.com/PeiKeSmart>）的现有仓库中检索、学习和复用已有实现
 - 输出前检索现有实现，**禁止重复造轮子**
-- 先列方案再实现
+- 先列方案再实现（不生成超出需求的大块模板）
 - 标记不确定上下文为"需查看文件"
-- 进行修改或提交后，自动运行相关单元测试并确保通过
-- 生成文档：未特别指明时，默认以 Markdown（.md）格式输出，使用 UTF-8 编码
+- 修改代码后自动运行相关单元测试并确保通过
+- 生成文档默认使用 Markdown（.md）格式 + UTF-8 编码
 
 ### 禁止
 
-- 虚构 API/文件/类型/测试结果/性能数据
-- 未检索即重写或重复实现
+- 虚构 API/文件/类型
+- 伪造测试结果/性能数据
 - 擅自删除公共/受保护成员
 - 擅自删除已有代码注释
-- 仅删除或合并空白行制造"格式优化"提交
-- 删除循环体的花括号（除非原代码就无）
+- 仅删除空白行制造"格式优化"提交
+- 删除循环体的花括号
 - 将 `<summary>` 拆成多行
 - 将 `String`/`Int32` 改为 `string`/`int`
-- 引入重复第三方功能库（除非说明理由并权衡）
+- 新增外部依赖（除非说明理由并给出权衡）
 - 在热点路径添加未缓存反射/复杂 Linq
 - 输出敏感凭据/内部地址
-- 未审计第三方片段直接贴入
-- 将非确定性行为（时间/随机）直接断言而不隔离
-- 强行异步化纯同步逻辑
-- 大面积格式化无业务价值
+- 回答非开发相关问题（回复："我是编程助手"）
 
 ---
 
-## 12. 变更与审核说明
+## 13. 变更说明模板
 
 提交或答复需包含：
 
@@ -430,13 +481,13 @@ catch (Exception ex)
 
 ---
 
-## 13. 术语说明
+## 14. 术语说明
 
 | 术语 | 定义 |
 |------|------|
 | **热点路径** | 经性能分析或高频调用栈确认的关键执行段 |
 | **基线** | 变更前的功能/性能参考数据 |
+| **就近规则** | 变量、字段紧邻使用位置声明，提升代码可读性 |
 
 ---
-
 （完）
