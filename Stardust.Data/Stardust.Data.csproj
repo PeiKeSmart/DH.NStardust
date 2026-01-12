@@ -50,7 +50,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NCode" Version="4.17.2026.106-beta0911" />
+    <PackageReference Include="DH.NCode" Version="4.17.2026.112-beta1129" />
   </ItemGroup>
 
   <ItemGroup>
