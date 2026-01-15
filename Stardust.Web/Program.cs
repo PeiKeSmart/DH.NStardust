@@ -1,5 +1,4 @@
 ﻿using NewLife.Log;
-
 using Stardust.Web;
 
 XTrace.UseConsole();
