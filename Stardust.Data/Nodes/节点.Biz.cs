@@ -4,15 +4,12 @@ using System.ComponentModel;
 using System.Linq;
 using System.Web.Script.Serialization;
 using System.Xml.Serialization;
-
 using NewLife;
 using NewLife.Data;
 using NewLife.Log;
 using NewLife.Remoting.Models;
-
 using Stardust.Data.Platform;
 using Stardust.Models;
-
 using XCode;
 using XCode.Cache;
 using XCode.Configuration;
@@ -576,7 +573,7 @@ public partial class Node : Entity<Node>, IDeviceModel2, ILogProvider
                 node.DriveSize = (Int32)Math.Round(info.DriveInfo.Split(",").Sum(e => e.Substring("/", "G").ToDouble() * 1024));
         }
         if (info.MaxOpenFiles > 0) node.MaxOpenFiles = info.MaxOpenFiles;
-        if (!info.LibcVersion.IsNullOrEmpty()) node.LibcVersion = info.LibcVersion;
+        if (!info.CLibVersion.IsNullOrEmpty()) node.CLibVersion = info.CLibVersion;
         if (!info.Dpi.IsNullOrEmpty()) node.Dpi = info.Dpi;
         if (!info.Resolution.IsNullOrEmpty()) node.Resolution = info.Resolution;
         if (!info.Macs.IsNullOrEmpty()) node.MACs = info.Macs;
