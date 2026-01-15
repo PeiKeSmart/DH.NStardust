@@ -14,6 +14,7 @@
 | **一致** | 风格、结构、命名、API 行为稳定 |
 | **可控** | 限制改动影响面，可审计，兼容友好，不引入隐患 |
 | **可靠** | 先检索再生成，避免虚构，保持性能，不破坏现有合约 |
+| **主动** | 发现问题主动修复，不回避合理优化 |
 
 ---
 
@@ -43,12 +44,75 @@
 
 1. **需求分类**：功能/修复/性能/重构/文档
 2. **检索**：相关类型、目录、方法、已有扩展/工具（**优先复用**）
-3. **评估**：是否公共 API？是否性能热点？
+3. **评估**：是否公共 API？是否性能热点？**是否存在潜在问题？**
 4. **设计**：列出改动点 + 兼容/降级策略
-5. **实施**：局部编辑，限制影响面；保留原注释与结构
-6. **验证**：编译通过；运行相关单元测试（未找到需说明）；不自动新增测试项目
+5. **实施**：
+   - 完成用户请求的核心任务
+   - **顺带修复**发现的明显缺陷（资源泄漏、空引用、逻辑错误）
+   - **顺带优化**可简化的重复代码
+   - 保留原注释与结构，除非注释本身有误
+6. **验证**：
+   - 代码变更：必须编译通过；运行相关单元测试（未找到需说明）
+   - 仅文档变更（未修改任何代码文件）：可跳过编译与单元测试
+   - 不自动新增测试项目
 7. **说明**：变更摘要/影响范围/风险点
 8. **提交**：统一格式，整理中文提交日志；禁止夹带无关格式化
+
+### 4.1 主动优化原则
+
+当用户请求分析或优化代码时，**应主动**：
+
+| 类型 | 行动 |
+|------|------|
+| **架构梳理** | 梳理代码架构并进行重构，让代码结构更清晰易懂 |
+| **语法现代化** | 使用最新的 C# 语法来简化代码，提升可读性 |
+| **缺陷修复** | 资源泄漏、空引用风险、并发问题、逻辑错误 → 直接修复，让代码更健壮 |
+| **性能优化** | 无用分配、重复计算、可池化资源 → 通过缓存减少耗时的重复计算 |
+| **代码简化** | 重复代码提取、冗余判断合并、现代语法替换 → 在不影响可读性前提下简化 |
+| **注释完善** | 补充类、接口、属性、方法头部的注释，以及方法内部重要代码的注释 |
+| **架构参考** | 参考网络上同类功能的优秀架构，给出架构调整建议 |
+
+**架构调整策略**：
+- **改动较小**：直接调整，完成后说明变更内容
+- **改动较大**：先列出调整方案，询问用户意见，待确认后再修改
+
+**不应过度保守**：
+- ❌ 仅添加注释而忽略明显的代码问题
+- ❌ 发现资源泄漏却不修复
+- ❌ 看到重复代码却不提取
+- ❌ 用户要求优化时只做表面工作
+
+**保持谨慎的场景**：
+- 公共 API 签名变更 → 需说明兼容性影响
+- 性能关键路径 → 需有依据或说明推理
+- 大范围重构 → 需先与用户确认范围
+
+### 4.2 防御性注释规则
+
+在旧有代码中，经常可以看到**被注释掉的代码**，这些注释代码前面通常带有说明文字。
+
+**这些是防御性注释**：
+- 记录了过去曾经踩过的坑
+- 目的是告诉后来人不要按照注释代码去写，否则会有问题
+- **禁止删除此类防御性注释**，用于警示后人
+
+**识别特征**：
+```csharp
+// 曾经尝试过 xxx 方案，但会导致 yyy 问题
+// var result = DoSomethingWrong();
+
+// 不要使用 xxx，否则会造成 yyy
+// await client.SendAsync(data);
+
+// 这里不能用 xxx，因为 yyy
+// stream.Flush();
+```
+
+**处理原则**：
+- ✅ 保留这类带说明的注释代码
+- ✅ 可以补充更详细的说明，解释为什么不能这样做
+- ❌ 不要删除这类防御性注释
+- ❌ 不要尝试"恢复"这些被注释的代码
 
 ---
 
@@ -58,20 +122,21 @@
 
 | 项目 | 规范 |
 |------|------|
-| **语言版本** | `<LangVersion>latest</LangVersion>`，所有目标框架均使用最新 C# 语法 |
-| **命名空间** | file-scoped namespace |
-| **类型名** | **必须**使用 .NET 正式名 `String`/`Int32`/`Boolean` 等，避免 `string`/`int`/`bool` |
-| **单文件原则** | 每文件一个主要公共类型；平台差异使用 `partial` |
+| 语言版本 | `<LangVersion>latest</LangVersion>`，所有目标框架均使用最新 C# 语法 |
+| 命名空间 | file-scoped namespace |
+| 类型名 | **必须**使用 .NET 正式名 `String`/`Int32`/`Boolean` 等，避免 `string`/`int`/`bool` |
+| 兼容性 | 代码需兼容 .NET 4.5+；**禁止**使用 `ArgumentNullException.ThrowIfNull`，改用 `if (value == null) throw new ArgumentNullException(nameof(value));` |
+| 单文件 | 每文件一个主要公共类型；较大平台差异使用 `partial` |
 
 ### 5.2 命名规范
 
 | 成员类型 | 命名规则 | 示例 |
 |---------|---------|------|
-| **类型/公共成员** | PascalCase | `UserService`、`GetName()` |
-| **参数/局部变量** | camelCase | `userName`、`count` |
-| **私有字段** | `_camelCase` | `_cache`、`_timer` |
-| **属性/方法（实例/静态）** | PascalCase | `Name`、`Default`、`Create()` |
-| **扩展方法类** | `xxxHelper` 或 `xxxExtensions` | `StringHelper`、`CollectionExtensions` |
+| 类型/公共成员 | PascalCase | `UserService`、`GetName()` |
+| 参数/局部变量 | camelCase | `userName`、`count` |
+| 私有字段（实例/静态） | `_camelCase` | `_cache`、`_instance` |
+| 属性/方法（实例/静态） | PascalCase | `Name`、`Default`、`Create()` |
+| 扩展方法类 | `xxxHelper` 或 `xxxExtensions` | `StringHelper`、`CollectionExtensions` |
 
 ### 5.3 代码风格
 
@@ -154,7 +219,7 @@ public class MyService : DisposeBase
     }
     #endregion
 
-    #region 辅助
+    #region 日志
     /// <summary>日志</summary>
     public ILog Log { get; set; } = Logger.Null;
 
@@ -166,7 +231,13 @@ public class MyService : DisposeBase
 }
 ```
 
-**Region 顺序**：`属性` → `静态`（如有）→ `构造` → `方法` → `辅助`/`日志`
+**Region 顺序**：`属性` → `静态`（如有）→ `构造` → `方法` → `辅助`（如有）→ `日志`
+
+**日志 Region 规则**：
+- 类代码中如果带有 `ILog Log { get; set; }` 和 `WriteLog` 方法
+- **必须放在类代码的最后**
+- **必须用名为"日志"的 region 包裹**
+- 不要放在"辅助" region 中，应单独作为"日志" region
 
 ### 5.5 可读性优先（就近规则）
 
@@ -213,7 +284,82 @@ List<User> users = [];
 if (obj is String { Length: > 0 } str) { }
 ```
 
-### 5.7 代码整洁约束
+### 5.7 集合表达式
+
+优先使用集合表达式 `[]` 初始化集合，代码更简洁：
+
+```csharp
+// ✅ 属性定义：使用集合表达式
+public List<String> Tags { get; set; } = [];
+public Dictionary<String, Object> Data { get; set; } = [];
+public Int32[] Numbers { get; set; } = [];
+
+// ❌ 避免冗长的初始化方式
+public List<String> Tags { get; set; } = new List<String>();
+public List<String> Tags { get; set; } = new();
+
+// ✅ 方法内局部变量
+List<String> list = [];
+var items = new List<Item>();  // 需要立即 Add 时可用 new
+
+// ✅ 带初始值的集合
+List<Int32> nums = [1, 2, 3];
+String[] names = ["Alice", "Bob"];
+Dictionary<String, Int32> scores = new() { ["Math"] = 90, ["English"] = 85 };
+
+// ✅ 集合展开（spread）
+List<Int32> combined = [..first, ..second, 100];
+
+// ✅ 返回空集合
+public IList<String> GetItems() => [];
+```
+
+### 5.8 Null 条件运算符
+
+优先使用 `?.`（null 条件运算符）简化空值检查，提升代码简洁性与可读性：
+
+```csharp
+// ✅ 方法调用：使用 null 条件运算符
+span?.AppendTag("test");
+handler?.Invoke(this, args);
+list?.Clear();
+
+// ❌ 避免冗余的 if 判断
+if (span != null) span.AppendTag("test");
+if (handler != null) handler.Invoke(this, args);
+
+// ✅ 属性赋值：使用 null 条件赋值（C# 14 新特性）
+customer?.Order = GetCurrentOrder();
+span?.Value = 1234;
+config?.Name = "test";
+
+// ❌ 避免冗余的 if 判断
+if (customer != null) customer.Order = GetCurrentOrder();
+if (span != null) span.Value = 1234;
+
+// ✅ 复合赋值运算符也支持
+counter?.Count += 1;
+list?.Capacity *= 2;
+
+// ✅ 链式调用：安全访问嵌套属性
+var name = user?.Profile?.Name;
+var count = order?.Items?.Count ?? 0;
+
+// ✅ 结合 null 合并运算符提供默认值
+var length = str?.Length ?? 0;
+var display = item?.ToString() ?? "N/A";
+
+// ✅ 索引器访问
+var first = list?[0];
+var value = dict?["key"];
+
+// ✅ 委托调用（推荐写法）
+PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+```
+
+**注意**：null 条件赋值时，右侧表达式仅在左侧非 null 时才会求值；不支持自增/自减运算符（`++`/`--`）。
+
+### 5.9 代码整洁约束
 
 | 约束 | 说明 |
 |------|------|
@@ -224,7 +370,7 @@ if (obj is String { Length: > 0 } str) { }
 
 **仅在同一局部有真实代码增删且需要保持统一时才可适度调整。**
 
-### 5.8 多目标框架支持
+### 5.10 多目标框架支持
 
 PeiKeSmart 支持 `net45` 到 `net10`，使用条件编译处理 API 差异：
 
@@ -355,7 +501,7 @@ var flag = str.ToBoolean();
 ## 8. 日志与追踪
 
 ```csharp
-#region 辅助
+#region 日志
 /// <summary>日志</summary>
 public ILog Log { get; set; } = Logger.Null;
 
@@ -439,13 +585,24 @@ catch (Exception ex)
 - 标记不确定上下文为"需查看文件"
 - 修改代码后自动运行相关单元测试并确保通过
 - 生成文档默认使用 Markdown（.md）格式 + UTF-8 编码
+- **发现明显缺陷时主动修复**（资源泄漏、空引用、逻辑错误）
+- **用户要求优化时深入分析**，不做表面工作
+
+### 鼓励
+
+- 提取重复代码为公共方法
+- 简化冗余的条件判断
+- 使用现代 C# 语法改进可读性
+- 补充缺失的资源释放逻辑
+- 修正错误或过时的注释
 
 ### 禁止
 
 - 虚构 API/文件/类型
 - 伪造测试结果/性能数据
 - 擅自删除公共/受保护成员
-- 擅自删除已有代码注释
+- 擅自删除已有代码注释（除非注释本身错误）
+- **删除防御性注释**（带说明的注释代码，记录历史踩坑经验）
 - 仅删除空白行制造"格式优化"提交
 - 删除循环体的花括号
 - 将 `<summary>` 拆成多行
@@ -454,6 +611,8 @@ catch (Exception ex)
 - 在热点路径添加未缓存反射/复杂 Linq
 - 输出敏感凭据/内部地址
 - 回答非开发相关问题（回复："我是编程助手"）
+- **发现问题却视而不见**
+- **用户要求优化时仅做注释/测试等表面工作**
 
 ---
 
@@ -488,6 +647,47 @@ catch (Exception ex)
 | **热点路径** | 经性能分析或高频调用栈确认的关键执行段 |
 | **基线** | 变更前的功能/性能参考数据 |
 | **就近规则** | 变量、字段紧邻使用位置声明，提升代码可读性 |
+| **顺带修复** | 在完成主任务过程中，修复发现的相关问题 |
+| **防御性注释** | 被注释掉的代码，前面带有说明，记录历史踩坑经验，用于警示后人 |
+
+---
+
+## 15. 代码优化检查清单
+
+当进行代码优化时，按以下清单逐项检查：
+
+### 架构与结构
+- [ ] 代码架构是否清晰？是否需要重构？
+- [ ] 类的职责是否单一？是否需要拆分？
+- [ ] 是否有重复代码可以提取为公共方法？
+- [ ] Region 组织是否符合规范（属性→静态→构造→方法→辅助→日志）？
+
+### 语法现代化
+- [ ] 是否可以使用更简洁的 C# 语法？（switch 表达式、模式匹配等）
+- [ ] 集合初始化是否使用了集合表达式 `[]`？
+- [ ] 是否可以使用 null 条件运算符 `?.` 简化代码？
+
+### 健壮性
+- [ ] 是否存在空引用风险？
+- [ ] 资源是否正确释放？（IDisposable、流、连接等）
+- [ ] 异常处理是否完善？
+- [ ] 并发场景是否线程安全？
+
+### 性能
+- [ ] 是否存在可以缓存的重复计算？
+- [ ] 是否有不必要的对象分配？
+- [ ] 热点路径是否避免了反射和复杂 Linq？
+- [ ] 是否使用了对象池/ArrayPool 等池化技术？
+
+### 注释与文档
+- [ ] 类、接口是否有 `<summary>` 注释？
+- [ ] 公共方法是否有完整的参数和返回值注释？
+- [ ] 方法内重要逻辑是否有注释说明？
+- [ ] 防御性注释是否保留？
+
+### 日志
+- [ ] `ILog Log` 和 `WriteLog` 是否放在类的最后？
+- [ ] 是否用名为"日志"的 region 包裹？
 
 ---
 （完）
