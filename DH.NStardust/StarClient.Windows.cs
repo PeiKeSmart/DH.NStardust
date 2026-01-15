@@ -2,7 +2,6 @@
 using System.Runtime.Versioning;
 using NewLife;
 using NewLife.Caching;
-using NewLife.Net;
 using Stardust.Models;
 using Stardust.Windows;
 
@@ -166,7 +165,7 @@ public partial class StarClient
                 if (activeTime < 0) activeTime = 0;
                 if (activeTime > 100) activeTime = 100;
 
-                return (reads + writes, Math.Round(activeTime / 100, 2));
+                return (reads + writes, Math.Round(activeTime / 100, 4));
             }
         }
         catch { }
