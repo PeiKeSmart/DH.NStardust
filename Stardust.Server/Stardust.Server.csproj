@@ -49,7 +49,7 @@
   <ItemGroup>
     <PackageReference Include="DH.NIP" Version="4.17.2026.114-beta0405" />
     <PackageReference Include="DH.NRedis" Version="4.17.2026.115-beta0813" />
-    <PackageReference Include="DH.NRemoting.Extensions" Version="4.17.2026.112-beta1212" />
+    <PackageReference Include="DH.NRemoting.Extensions" Version="4.17.2026.122-beta0845" />
   </ItemGroup>
 
   <ItemGroup>
