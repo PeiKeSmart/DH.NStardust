@@ -127,7 +127,7 @@ public abstract class DeployStrategyBase : IDeployStrategy, ITracerFeature
         var fis = dir.GetFiles();
 
         var runfile = fis.FirstOrDefault(e => e.Name.EqualIgnoreCase(name));
-        
+
         // 包名的后缀改为exe（仅 Windows）
         if (runfile == null && Runtime.Windows)
         {
@@ -145,7 +145,7 @@ public abstract class DeployStrategyBase : IDeployStrategy, ITracerFeature
                 // 提取文件名（去除可能的路径前缀）
                 var fileName = Path.GetFileName(first);
                 runfile = fis.FirstOrDefault(e => e.Name.EqualIgnoreCase(fileName));
-                if (runfile != null) 
+                if (runfile != null)
                 {
                     // 找到文件后，移除参数中的文件名
                     arguments = arguments[(p + 1)..].TrimStart();
