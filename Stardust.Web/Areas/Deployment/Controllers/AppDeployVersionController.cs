@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
@@ -17,7 +16,7 @@ namespace Stardust.Web.Areas.Deployment.Controllers;
 
 [Menu(80, false)]
 [DeploymentArea]
-public class AppDeployVersionController : EntityController<AppDeployVersion>
+public class AppDeployVersionController : DeploymentEntityController<AppDeployVersion>
 {
     static AppDeployVersionController()
     {
@@ -54,32 +53,6 @@ public class AppDeployVersionController : EntityController<AppDeployVersion>
         _deployService = deployService;
         _fileStorage = fileStorage;
         _tracer = tracer;
-    }
-
-    public override void OnActionExecuting(ActionExecutingContext filterContext)
-    {
-        base.OnActionExecuting(filterContext);
-
-        var appId = GetRequest("appId").ToInt(-1);
-        var deployId = GetRequest("deployId").ToInt(-1);
-        if (deployId > 0 || appId > 0)
-        {
-            PageSetting.NavView = "_App_Nav";
-            PageSetting.EnableNavbar = false;
-        }
-    }
-
-    protected override FieldCollection OnGetFields(ViewKinds kind, Object model)
-    {
-        var fields = base.OnGetFields(kind, model);
-
-        if (kind == ViewKinds.List)
-        {
-            var deployId = GetRequest("deployId").ToInt(-1);
-            if (deployId > 0) fields.RemoveField("DeployName");
-        }
-
-        return fields;
     }
 
     protected override IEnumerable<AppDeployVersion> Search(Pager p)
@@ -187,7 +160,7 @@ public class AppDeployVersionController : EntityController<AppDeployVersion>
         //根据当前表Url(/cube/file?id=7185535436880961536.zip)取 Id@Attachment 唯一
         if (!entity.Url.IsNullOrEmpty())
         {
-            var id = Path.GetFileNameWithoutExtension(entity.Url.Replace("/cube/file?id=", string.Empty));
+            var id = Path.GetFileNameWithoutExtension(entity.Url.Replace("/cube/file?id=", String.Empty));
             var att = Attachment.FindById(id.ToLong());
             if (att != null)
             {

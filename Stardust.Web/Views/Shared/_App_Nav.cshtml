@@ -21,7 +21,7 @@
         var entity = AppConfig.FindById(configId);// ?? AppConfig.FindById(id);
         if (entity != null && entity.AppId > 0) appId = entity.AppId;
     }
-    if (appId == 0 && path2.EqualIgnoreCase("/Deployment/AppDeploy", "/Deployment/AppDeployVersion", "/Deployment/AppDeployNode", "/Deployment/AppDeployHistory"))
+    if (appId == 0 && path2.StartsWithIgnoreCase("/Deployment/"))
     {
         // var id = Context.Request.Query["Id"].ToInt(0);
         var entity = AppDeploy.FindById(deployId);// ?? AppDeploy.FindById(id);
@@ -101,9 +101,7 @@
                             {
                                 var url = elm.Value + "";
                                 var v = url.Substring(null, "?");
-                                if (start.Year > 2000) url += "&dtStart=" + start.ToFullString();
-                                if (end.Year > 2000) url += "&dtEnd=" + end.ToFullString();
-                                <li role="presentation" class="@(path.EqualIgnoreCase(v)?"active":"")">
+                                <li role="presentation" class="@(path.EqualIgnoreCase(v) ? "active" : "")">
                                     <a href="@url">@elm.Key</a>
                                 </li>
                             }
@@ -114,9 +112,7 @@
                 {
                     var url = item.Value + "";
                     var v = url.Substring(null, "?");
-                    if (start.Year > 2000) url += "&dtStart=" + start.ToFullString();
-                    if (end.Year > 2000) url += "&dtEnd=" + end.ToFullString();
-                    <li role="presentation" class="@(path.EqualIgnoreCase(v)?"active":"")">
+                    <li role="presentation" class="@(path.EqualIgnoreCase(v) ? "active" : "")">
                         <a href="@url">@item.Key</a>
                     </li>
                 }

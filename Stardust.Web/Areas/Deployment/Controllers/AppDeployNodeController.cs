@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
@@ -14,7 +13,7 @@ namespace Stardust.Web.Areas.Deployment.Controllers;
 
 [Menu(88, false)]
 [DeploymentArea]
-public class AppDeployNodeController : EntityController<AppDeployNode>
+public class AppDeployNodeController : DeploymentEntityController<AppDeployNode>
 {
     static AppDeployNodeController()
     {
@@ -48,49 +47,13 @@ public class AppDeployNodeController : EntityController<AppDeployNode>
         _deployService = deployService;
     }
 
-    public override void OnActionExecuting(ActionExecutingContext filterContext)
-    {
-        base.OnActionExecuting(filterContext);
-
-        var appId = GetRequest("appId").ToInt(-1);
-        var deployId = GetRequest("deployId").ToInt(-1);
-        if (deployId > 0 || appId > 0)
-        {
-            PageSetting.NavView = "_App_Nav";
-            PageSetting.EnableNavbar = false;
-        }
-
-        var nodeId = GetRequest("nodeId").ToInt(-1);
-        if (nodeId > 0)
-        {
-            PageSetting.NavView = "_Node_Nav";
-            PageSetting.EnableNavbar = false;
-        }
-    }
-
-    protected override FieldCollection OnGetFields(ViewKinds kind, Object model)
-    {
-        var fields = base.OnGetFields(kind, model);
-
-        if (kind == ViewKinds.List)
-        {
-            var deployId = GetRequest("deployId").ToInt(-1);
-            if (deployId > 0) fields.RemoveField("DeployName");
-
-            var nodeId = GetRequest("nodeId").ToInt(-1);
-            if (nodeId > 0) fields.RemoveField("NodeName");
-        }
-
-        return fields;
-    }
-
     protected override IEnumerable<AppDeployNode> Search(Pager p)
     {
         var id = p["id"].ToInt(-1);
         if (id > 0)
         {
             var entity = AppDeployNode.FindById(id);
-            if (entity != null) return new List<AppDeployNode> { entity };
+            if (entity != null) return [entity];
         }
 
         var appId = p["deployId"].ToInt(-1);
@@ -139,27 +102,29 @@ public class AppDeployNodeController : EntityController<AppDeployNode>
     }
 
     /// <summary>执行操作</summary>
-    /// <param name="act"></param>
-    /// <param name="id"></param>
+    /// <param name="act">操作。install/start/stop/restart/uninstall</param>
+    /// <param name="id">节点编号</param>
+    /// <param name="resources">资源列表。逗号分隔的资源名称，如dm8-driver,newlifex-cert</param>
     /// <returns></returns>
     [EntityAuthorize(PermissionFlags.Update)]
-    public async Task<ActionResult> Operate(String act, Int32 id)
+    public async Task<ActionResult> Operate(String act, Int32 id, String[] resources)
     {
         var dn = AppDeployNode.FindById(id);
         if (dn == null || dn.Node == null || dn.Deploy == null) return Json(500, $"[{id}]不存在");
 
         var deployName = dn.DeployName;
         if (deployName.IsNullOrEmpty()) deployName = dn.Deploy?.Name;
-        await _deployService.Control(dn.Deploy, dn, act, UserHost, 0, 0);
+        await _deployService.Control(dn.Deploy, dn, act, UserHost, 0, 0, resources);
 
         return JsonRefresh($"在节点[{dn.NodeName}]上对应用[{deployName}]执行[{act}]操作", 1);
     }
 
     /// <summary>批量执行操作</summary>
-    /// <param name="act"></param>
+    /// <param name="act">操作。install/start/stop/restart/uninstall</param>
+    /// <param name="resources">资源列表。逗号分隔的资源名称，如dm8-driver,newlifex-cert</param>
     /// <returns></returns>
     [EntityAuthorize(PermissionFlags.Update)]
-    public async Task<ActionResult> BatchOperate(String act)
+    public async Task<ActionResult> BatchOperate(String act, String[] resources)
     {
         var ts = new List<Task>();
         var ids = SelectKeys.Select(e => e.ToInt()).Where(e => e > 0).Distinct().ToList();
@@ -168,7 +133,7 @@ public class AppDeployNodeController : EntityController<AppDeployNode>
             var dn = AppDeployNode.FindById(id);
             if (dn != null && dn.Node != null && dn.Deploy != null)
             {
-                ts.Add(_deployService.Control(dn.Deploy, dn, act, UserHost, dn.Delay, 0));
+                ts.Add(_deployService.Control(dn.Deploy, dn, act, UserHost, dn.Delay, 0, resources));
             }
         }
 
