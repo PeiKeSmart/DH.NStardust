@@ -54,17 +54,17 @@ namespace Stardust.Data
         #endregion
 
         #region 扩展属性
-        /// <summary>应用</summary>
-        [XmlIgnore, IgnoreDataMember]
-        //[ScriptIgnore]
-        public App App => Extends.Get(nameof(App), k => App.FindById(AppId));
+        ///// <summary>应用</summary>
+        //[XmlIgnore, IgnoreDataMember]
+        ////[ScriptIgnore]
+        //public App App => Extends.Get(nameof(App), k => App.FindById(AppId));
 
-        /// <summary>应用</summary>
-        [XmlIgnore, IgnoreDataMember]
-        //[ScriptIgnore]
-        [DisplayName("应用")]
-        [Map(nameof(AppId), typeof(App), "ID")]
-        public String AppName => App?.Name;
+        ///// <summary>应用</summary>
+        //[XmlIgnore, IgnoreDataMember]
+        ////[ScriptIgnore]
+        //[DisplayName("应用")]
+        //[Map(nameof(AppId), typeof(App), "ID")]
+        //public String AppName => App?.Name;
         #endregion
 
         #region 扩展查询
@@ -81,30 +81,30 @@ namespace Stardust.Data
             return Find(_.Id == id);
         }
 
-    /// <summary>根据应用、编号查找</summary>
-    /// <param name="appId">应用</param>
-    /// <param name="id">编号</param>
-    /// <returns>实体列表</returns>
-    public static IList<AppClientLog> FindAllByAppIdAndId(Int32 appId, Int64 id)
-    {
-        // 实体缓存
-        if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId && e.Id == id);
+        /// <summary>根据应用、编号查找</summary>
+        /// <param name="appId">应用</param>
+        /// <param name="id">编号</param>
+        /// <returns>实体列表</returns>
+        public static IList<AppClientLog> FindAllByAppIdAndId(Int32 appId, Int64 id)
+        {
+            // 实体缓存
+            if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId && e.Id == id);
 
-        return FindAll(_.AppId == appId & _.Id == id);
-    }
+            return FindAll(_.AppId == appId & _.Id == id);
+        }
 
-    /// <summary>根据应用查找</summary>
-    /// <param name="appId">应用</param>
-    /// <returns>实体列表</returns>
-    public static IList<AppClientLog> FindAllByAppId(Int32 appId)
-    {
-        if (appId <= 0) return new List<AppClientLog>();
+        /// <summary>根据应用查找</summary>
+        /// <param name="appId">应用</param>
+        /// <returns>实体列表</returns>
+        public static IList<AppClientLog> FindAllByAppId(Int32 appId)
+        {
+            if (appId <= 0) return new List<AppClientLog>();
 
-        // 实体缓存
-        if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId);
+            // 实体缓存
+            if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId);
 
-        return FindAll(_.AppId == appId);
-    }
+            return FindAll(_.AppId == appId);
+        }
         #endregion
 
         #region 高级查询
