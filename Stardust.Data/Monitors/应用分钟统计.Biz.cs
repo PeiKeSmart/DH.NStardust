@@ -111,30 +111,30 @@ public partial class AppMinuteStat : Entity<AppMinuteStat>
         return list;
     }
 
-    /// <summary>根据统计分钟、应用查找</summary>
-    /// <param name="statTime">统计分钟</param>
-    /// <param name="appId">应用</param>
-    /// <returns>实体对象</returns>
-    public static AppMinuteStat FindByStatTimeAndAppId(DateTime statTime, Int32 appId)
-    {
-        // 实体缓存
-        if (Meta.Session.Count < 1000) return Meta.Cache.Find(e => e.StatTime == statTime && e.AppId == appId);
+/// <summary>根据统计分钟、应用查找</summary>
+/// <param name="statTime">统计分钟</param>
+/// <param name="appId">应用</param>
+/// <returns>实体对象</returns>
+public static AppMinuteStat FindByStatTimeAndAppId(DateTime statTime, Int32 appId)
+{
+    // 实体缓存
+    if (Meta.Session.Count < 1000) return Meta.Cache.Find(e => e.StatTime == statTime && e.AppId == appId);
 
-        return Find(_.StatTime == statTime & _.AppId == appId);
-    }
+    return Find(_.StatTime == statTime & _.AppId == appId);
+}
 
-    /// <summary>根据应用查找</summary>
-    /// <param name="appId">应用</param>
-    /// <returns>实体列表</returns>
-    public static IList<AppMinuteStat> FindAllByAppId(Int32 appId)
-    {
-        if (appId <= 0) return new List<AppMinuteStat>();
+/// <summary>根据应用查找</summary>
+/// <param name="appId">应用</param>
+/// <returns>实体列表</returns>
+public static IList<AppMinuteStat> FindAllByAppId(Int32 appId)
+{
+    if (appId <= 0) return new List<AppMinuteStat>();
 
-        // 实体缓存
-        if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId);
+    // 实体缓存
+    if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId);
 
-        return FindAll(_.AppId == appId);
-    }
+    return FindAll(_.AppId == appId);
+}
     #endregion
 
     #region 高级查询

@@ -102,30 +102,30 @@ public partial class TraceHourStat : Entity<TraceHourStat>
         return list;
     }
 
-    /// <summary>根据统计小时、应用、跟踪项查找</summary>
-    /// <param name="statTime">统计小时</param>
-    /// <param name="appId">应用</param>
-    /// <param name="itemId">跟踪项</param>
-    /// <returns>实体列表</returns>
-    public static IList<TraceHourStat> FindAllByStatTimeAndAppIdAndItemId(DateTime statTime, Int32 appId, Int32 itemId)
-    {
-        // 实体缓存
-        if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.StatTime == statTime && e.AppId == appId && e.ItemId == itemId);
+/// <summary>根据统计小时、应用、跟踪项查找</summary>
+/// <param name="statTime">统计小时</param>
+/// <param name="appId">应用</param>
+/// <param name="itemId">跟踪项</param>
+/// <returns>实体列表</returns>
+public static IList<TraceHourStat> FindAllByStatTimeAndAppIdAndItemId(DateTime statTime, Int32 appId, Int32 itemId)
+{
+    // 实体缓存
+    if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.StatTime == statTime && e.AppId == appId && e.ItemId == itemId);
 
-        return FindAll(_.StatTime == statTime & _.AppId == appId & _.ItemId == itemId);
-    }
+    return FindAll(_.StatTime == statTime & _.AppId == appId & _.ItemId == itemId);
+}
 
-    /// <summary>根据应用、跟踪项查找</summary>
-    /// <param name="appId">应用</param>
-    /// <param name="itemId">跟踪项</param>
-    /// <returns>实体列表</returns>
-    public static IList<TraceHourStat> FindAllByAppIdAndItemId(Int32 appId, Int32 itemId)
-    {
-        // 实体缓存
-        if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId && e.ItemId == itemId);
+/// <summary>根据应用、跟踪项查找</summary>
+/// <param name="appId">应用</param>
+/// <param name="itemId">跟踪项</param>
+/// <returns>实体列表</returns>
+public static IList<TraceHourStat> FindAllByAppIdAndItemId(Int32 appId, Int32 itemId)
+{
+    // 实体缓存
+    if (Meta.Session.Count < 1000) return Meta.Cache.FindAll(e => e.AppId == appId && e.ItemId == itemId);
 
-        return FindAll(_.AppId == appId & _.ItemId == itemId);
-    }
+    return FindAll(_.AppId == appId & _.ItemId == itemId);
+}
     #endregion
 
     #region 高级查询
