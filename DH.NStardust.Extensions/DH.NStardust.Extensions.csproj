@@ -31,7 +31,7 @@
     <RepositoryUrl>https://github.com/PeiKeSmart/DH.NStardust</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>湖北登灏科技有限公司;DH组件;DH;$(AssemblyName)</PackageTags>
-    <PackageReleaseNotes>星尘监控用法标准化</PackageReleaseNotes>
+    <PackageReleaseNotes>重构部署体系支持多模式；新增远程命令执行；引入部署资源管理支持多平台分发；增强节点信息采集（GPU、时区、IOPS等）；桥接ObjectContainer与ASP.NET Core DI容器；分布式文件存储；XCode拦截器升级</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
