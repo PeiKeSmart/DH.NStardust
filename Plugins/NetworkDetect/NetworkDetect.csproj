@@ -6,7 +6,7 @@
     <Description>检测网络，如果长期不可用，则重启系统，主要应用于嵌入式工控机</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2025 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>1.0</VersionPrefix>
+    <VersionPrefix>4.18</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>
