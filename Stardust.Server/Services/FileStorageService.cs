@@ -90,15 +90,15 @@ public class CubeFileStorage : DefaultFileStorage
     {
         // 优先Redis队列作为事件总线，其次使用星尘事件总线，最后使用MemoryCache
         var queue = _cacheProvider.GetValue("RedisQueue") as ICache ?? _cacheProvider.Cache;
-
+        
         // 尝试使用Redis（版本 >= 5.0）
         if (queue is Redis redis && redis.Version >= new Version(5, 0) && SetEventBus(_cacheProvider))
             return Task.CompletedTask;
-
+        
         // Redis失败，尝试使用星尘事件总线
         if (_registry is AppClient client && SetEventBus(client))
             return Task.CompletedTask;
-
+        
         // 星尘事件总线失败，尝试使用MemoryCache
         if (_cacheProvider.Cache.GetType() == typeof(MemoryCache) && SetEventBus(_cacheProvider))
             return Task.CompletedTask;

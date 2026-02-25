@@ -22,7 +22,7 @@ internal class BinlogClear
         _timer.TryDispose();
     }
 
-    private void DoClear(Object state)
+    private void DoClear(Object? state)
     {
         try
         {

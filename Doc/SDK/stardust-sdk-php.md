@@ -1,6 +1,14 @@
 # 星尘监控 PHP SDK
 
-适用于 PHP 7.4+，提供星尘 APM 监控的接入能力。
+适用于 PHP 7.4+，提供星尘 APM 监控和配置中心的接入能力。
+
+## 功能特性
+
+- ✅ **APM 监控**：应用性能追踪、调用链分析、错误监控
+- ✅ **配置中心**：集中配置管理、配置热更新、多环境支持
+- ✅ **零依赖**：仅依赖 PHP 内置的 cURL 和 JSON 扩展
+- ✅ **轻量级**：核心代码约 500 行，易于集成和维护
+- ✅ **易于使用**：简洁的 API，几行代码即可完成接入
 
 ## 依赖
 
@@ -8,15 +16,34 @@
 - cURL 扩展（通常默认安装）
 - JSON 扩展（通常默认安装）
 
+## SDK 文件位置
+
+SDK 源码位于项目的 `SDK/PHP/` 目录：
+
+```
+SDK/PHP/
+├── src/
+│   ├── StardustTracer.php      # APM 监控核心类
+│   └── StardustConfig.php      # 配置中心客户端
+├── examples/
+│   ├── apm_basic.php           # APM 基础使用示例
+│   ├── config_basic.php        # 配置中心使用示例
+│   ├── laravel_middleware.php  # Laravel 中间件集成
+│   └── swoole_server.php       # Swoole 常驻进程示例
+└── README.md                   # 详细文档
+```
+
 ## 快速开始
 
+### APM 监控
+
 ```php
-require_once 'StardustTracer.php';
+require_once 'SDK/PHP/src/StardustTracer.php';
 
 $tracer = new StardustTracer('http://star.example.com:6600', 'MyPHPApp', 'MySecret');
 $tracer->login();
 
-// 埋点
+// 创建追踪片段
 $span = $tracer->newSpan('业务操作');
 $span->tag = '参数信息';
 try {
@@ -27,11 +54,167 @@ try {
     $span->finish();
 }
 
-// 请求结束时上报
+// 请求结束时上报（自动调用，也可手动调用）
 $tracer->flush();
 ```
 
-## 完整代码
+### 配置中心
+
+```php
+require_once 'SDK/PHP/src/StardustConfig.php';
+
+// 初始化配置客户端
+$config = new StardustConfig('http://star.example.com:6600', 'MyPHPApp', '', 'dev');
+$config->login();
+
+// 获取所有配置
+$configs = $config->getAll();
+
+// 获取单个配置项
+$dbHost = $config->get('database.host', 'localhost');
+$dbPort = $config->get('database.port', 3306);
+
+// 检查配置更新
+if ($config->hasNewVersion()) {
+    echo "有新版本配置等待发布\n";
+}
+```
+
+## 完整文档
+
+详细使用文档请参考：[SDK/PHP/README.md](../../SDK/PHP/README.md)
+
+内容包括：
+- 核心类说明（StardustTracer、StardustConfig）
+- 使用场景（PHP-FPM、Laravel、Swoole）
+- 高级特性（嵌套追踪、错误处理、自定义标签）
+- 性能优化建议
+- 故障排查指南
+
+## 示例代码
+
+完整示例请查看 `SDK/PHP/examples/` 目录：
+
+- `apm_basic.php` - APM 基础使用示例
+- `config_basic.php` - 配置中心使用示例
+- `laravel_middleware.php` - Laravel 中间件集成示例
+- `swoole_server.php` - Swoole 常驻进程示例
+
+运行示例：
+
+```bash
+# APM 基础示例
+php SDK/PHP/examples/apm_basic.php
+
+# 配置中心示例
+php SDK/PHP/examples/config_basic.php
+
+# Swoole 服务器示例（需要安装 Swoole 扩展）
+php SDK/PHP/examples/swoole_server.php
+```
+
+## 核心类简介
+
+### StardustTracer - APM 追踪器
+
+```php
+// 构造函数
+public function __construct(
+    string $server,        // 星尘服务器地址
+    string $appId,         // 应用标识
+    string $secret = '',   // 应用密钥
+    bool $autoShutdown = true  // 是否自动注册关闭函数上报
+)
+
+// 主要方法
+$tracer->login();              // 登录获取令牌
+$tracer->ping();               // 心跳保活
+$span = $tracer->newSpan($name); // 创建追踪片段
+$tracer->flush();              // 上报数据
+$tracer->setDebug(true);       // 开启调试模式
+```
+
+### StardustConfig - 配置中心客户端
+
+```php
+// 构造函数
+public function __construct(
+    string $server,     // 星尘服务器地址
+    string $appId,      // 应用标识
+    string $secret = '',    // 应用密钥
+    string $scope = ''      // 作用域（dev/test/prod）
+)
+
+// 主要方法
+$config->login();                     // 登录获取令牌
+$configs = $config->getAll();         // 获取所有配置
+$value = $config->get($key, $default); // 获取单个配置项
+$version = $config->getVersion();     // 获取当前配置版本
+$hasNew = $config->hasNewVersion();   // 检查是否有新版本
+$config->setScope('prod');            // 设置作用域
+$config->setDebug(true);              // 开启调试模式
+```
+
+## 使用场景
+
+### 场景1：PHP-FPM / Apache mod_php
+
+标准的请求-响应模式，每次请求独立：
+
+```php
+// 初始化（启用自动关闭函数）
+$tracer = new StardustTracer($server, $appId, $secret, true);
+$tracer->login();
+
+// 创建追踪
+$span = $tracer->newSpan('处理请求');
+// ... 业务逻辑
+$span->finish();
+
+// 请求结束时自动上报（通过 register_shutdown_function）
+```
+
+### 场景2：Laravel / Symfony 框架
+
+通过中间件集成：
+
+```php
+class StardustMiddleware
+{
+    public function handle(Request $request, Closure $next)
+    {
+        $span = $tracer->newSpan($request->path());
+        try {
+            return $next($request);
+        } finally {
+            $span->finish();
+            $tracer->flush();
+        }
+    }
+}
+```
+
+### 场景3：Swoole / Workerman 常驻进程
+
+需要定时上报和心跳：
+
+```php
+// 初始化（禁用自动关闭函数）
+$tracer = new StardustTracer($server, $appId, $secret, false);
+$tracer->login();
+
+// 定时上报（每60秒）
+Swoole\Timer::tick(60000, function () use ($tracer) {
+    $tracer->flush();
+});
+
+// 定时心跳（每30秒）
+Swoole\Timer::tick(30000, function () use ($tracer) {
+    $tracer->ping();
+});
+```
+
+## 附录：完整 SDK 源码
 
 ```php
 <?php

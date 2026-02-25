@@ -85,6 +85,7 @@ public class Startup
         services.AddSingleton<UplinkService>();
         services.AddSingleton<DeployService>();
         services.AddSingleton<MonitorService>();
+        services.AddSingleton<AgentDeployService>();
 
         services.AddSingleton<NodeSessionManager>();
         services.AddSingleton<AppSessionManager>();
@@ -115,6 +116,7 @@ public class Startup
         // 后台服务。数据保留，定时删除过期数据
         services.AddHostedService<DataRetentionService>();
         services.AddHostedService<RedisService>();
+        services.AddHostedService<MySqlService>();
         services.AddHostedService<OnlineService>();
         services.AddHostedService<NodeOnlineService>();
         services.AddHostedService<ApolloService>();
@@ -221,10 +223,6 @@ public class Startup
         });
 
         XTrace.WriteLine("StarServer初始化完成");
-
-        // 设置追踪统计服务的缓存提供者，用于热门应用共享存储
-        if (app.ApplicationServices.GetService<ITraceStatService>() is TraceStatService ts)
-            ts.CacheProvider = app.ApplicationServices.GetService<ICacheProvider>();
 
         // 取得StarWeb地址
         Task.Run(() => ResolveWebUrl(app.ApplicationServices));
