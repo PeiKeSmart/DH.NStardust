@@ -20,7 +20,7 @@
   </Folder>
   <Folder Name="/UnitTest/">
     <Project Path="ClientTest/ClientTest.csproj" />
-    <Project Path="Stardust.ServerTests/Stardust.ServerTests.csproj" />
+    <Project Path="Stardust.ServerTests/ServerTests.csproj" />
   </Folder>
   <Project Path="DeployAgent/DeployAgent.csproj" />
   <Project Path="DH.NStardust.Extensions/DH.NStardust.Extensions.csproj" />
