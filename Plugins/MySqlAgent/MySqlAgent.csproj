@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="DH.NCode" Version="4.19.2026.304-beta0025" />
+    <PackageReference Include="DH.NCode" Version="4.21.2026.305-beta0030" />
   </ItemGroup>
 
   <ItemGroup>
