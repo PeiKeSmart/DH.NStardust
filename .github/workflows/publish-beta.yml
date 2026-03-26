@@ -28,7 +28,9 @@ jobs:
       run: echo "VERSION=$(date '+%Y.%m%d-beta%H%M')" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - name: Build
       run: |
-        dotnet build -c Release --version-suffix ${{ env.VERSION }}
+        dotnet build DH.NStardust\DH.NStardust.csproj -c Release --version-suffix ${{ env.VERSION }}
+        dotnet build DH.NStardust.Extensions\DH.NStardust.Extensions.csproj -c Release --version-suffix ${{ env.VERSION }}
+        dotnet build DeployAgent\DeployAgent.csproj -c Release --version-suffix ${{ env.VERSION }}
     - name: Pack
       run: |
         dotnet pack --no-build --version-suffix ${{ env.VERSION }} -o out DH.NStardust\DH.NStardust.csproj
