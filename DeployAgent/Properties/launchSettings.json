@@ -1,7 +1,7 @@
 {
   "profiles": {
     "DeployAgent": {
-      "commandName": "Project"
+      "commandName": "Project",
     },
     "DeployAgent2": {
       "commandName": "Project",

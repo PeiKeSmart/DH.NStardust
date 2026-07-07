@@ -1,4 +1,4 @@
-﻿namespace DeployAgent;
+namespace DeployAgent;
 
 /// <summary>编译命令参数</summary>
 public class CompileCommand
