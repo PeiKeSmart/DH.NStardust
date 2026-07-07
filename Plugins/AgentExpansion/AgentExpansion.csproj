@@ -5,9 +5,9 @@
     <TargetFrameworks>net45;netcoreapp3.1;net5.0;net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
     <AssemblyTitle>代理扩展</AssemblyTitle>
     <Description>星尘代理局域网扩展，探测节点并自动安装StarAgent</Description>
-    <Company>新生命开发团队</Company>
-    <Copyright>©2002-2026 NewLife</Copyright>
-    <VersionPrefix>1.0</VersionPrefix>
+    <Company>湖北登灏科技有限公司</Company>
+    <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
+    <VersionPrefix>4.24</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>

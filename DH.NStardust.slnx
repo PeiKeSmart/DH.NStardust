@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Plugins/">
+    <Project Path="Plugins/AgentExpansion/AgentExpansion.csproj" />
     <Project Path="Plugins/MySqlAgent/MySqlAgent.csproj" />
     <Project Path="Plugins/NetworkDetect/NetworkDetect.csproj" />
   </Folder>

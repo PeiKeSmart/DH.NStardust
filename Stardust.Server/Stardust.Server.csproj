@@ -7,7 +7,7 @@
     <Description>星尘分布式服务平台后端核心。提供配置中心、注册中心、服务发现、远程发布、性能监控、日志中心等核心API服务，支持应用注册、配置下发、指标聚合、统计计算与任务调度，可横向扩展。</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>4.21</VersionPrefix>
+    <VersionPrefix>4.24</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>

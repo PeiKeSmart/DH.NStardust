@@ -8,7 +8,7 @@
     <Description>星尘构建发布工具。自动下载代码仓库、执行编译构建、打包输出并推送至星尘发布中心，支持资源版本管理与多平台分发，配合StarAgent实现自动化部署流水线。</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>4.21</VersionPrefix>
+    <VersionPrefix>4.24</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>
@@ -31,7 +31,7 @@
     <RepositoryUrl>https://github.com/PeiKeSmart/DH.NStardust</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>湖北登灏科技有限公司;DH组件;DH;$(AssemblyName)</PackageTags>
-    <PackageReleaseNotes>强化FormatName支持反向生成下划线字段名；重构实体类代码生成，支持独立生成模型类和接口</PackageReleaseNotes>
+    <PackageReleaseNotes>升级多个核心依赖包至最新版本；优化 AgentExpansion 配置与 SSH.NET 条件引用</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>

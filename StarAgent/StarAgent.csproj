@@ -7,7 +7,7 @@
     <Description>星尘节点守护代理。部署于每台应用服务器或边缘节点，提供进程守护、远程发布部署、性能监控采集（CPU/内存/磁盘/网络/GPU）、日志与指标上报，支持Windows服务、Linux systemd与IoT边缘环境。</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>4.21</VersionPrefix>
+    <VersionPrefix>4.24</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>

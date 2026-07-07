@@ -7,7 +7,7 @@
     <Description>星尘分布式服务框架ASP.NET Core扩展库。提供AddStardust、UseStardust、RegisterService、ConsumeService等中间件与便捷方法，简化服务注册发现与监控接入，支持Web/API应用快速集成星尘平台。</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>4.21</VersionPrefix>
+    <VersionPrefix>4.24</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>
@@ -31,7 +31,7 @@
     <RepositoryUrl>https://github.com/PeiKeSmart/DH.NStardust</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>湖北登灏科技有限公司;DH组件;DH;$(AssemblyName)</PackageTags>
-    <PackageReleaseNotes>新增服务健康检查能力；部署时支持自动放行防火墙端口；优化健康检查Http连接复用与超时控制；增强分布式文件存储事件总线初始化并兼容旧版Redis；重构Http扩展与响应头处理</PackageReleaseNotes>
+    <PackageReleaseNotes>新增TraceAnonymous属性支持调用链匿名访问；事件总线接口异步化，GetEventBus改名为CreateEventBus；优化事件总线追踪链路与TraceId赋值；升级多个核心依赖包至最新版本</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
