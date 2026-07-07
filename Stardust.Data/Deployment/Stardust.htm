@@ -5,12 +5,12 @@
         border-color: rgb(211, 202, 221);
     }
 
-    table thead,
-    table tr {
-        border-top-width: 1px;
-        border-top-style: solid;
-        border-top-color: rgb(211, 202, 221);
-    }
+        table thead,
+        table tr {
+            border-top-width: 1px;
+            border-top-style: solid;
+            border-top-color: rgb(211, 202, 221);
+        }
 
     table {
         border-bottom-width: 1px;
@@ -18,21 +18,21 @@
         border-bottom-color: rgb(211, 202, 221);
     }
 
-    table td,
-    table th {
-        padding: 5px 10px;
-        font-size: 14px;
-        font-family: Verdana;
-        color: rgb(95, 74, 121);
-    }
+        table td,
+        table th {
+            padding: 5px 10px;
+            font-size: 14px;
+            font-family: Verdana;
+            color: rgb(95, 74, 121);
+        }
 
-    table tr:nth-child(even) {
-        background: rgb(223, 216, 232)
-    }
+        table tr:nth-child(even) {
+            background: rgb(223, 216, 232)
+        }
 
-    table tr:nth-child(odd) {
-        background: #FFF
-    }
+        table tr:nth-child(odd) {
+            background: #FFF
+        }
 </style>
 <h3>应用部署（AppDeploy）</h3>
 <table>
@@ -211,7 +211,7 @@
             <td></td>
             <td></td>
             <td></td>
-            <td>默认master</td>
+            <td>默认main</td>
         </tr>
 
         <tr>
@@ -1055,7 +1055,7 @@
             <td>CommitLog</td>
             <td>提交记录</td>
             <td>String</td>
-            <td>50</td>
+            <td>500</td>
             <td></td>
             <td></td>
             <td></td>
@@ -1357,7 +1357,7 @@
             <td></td>
             <td></td>
             <td></td>
-            <td></td>
+            <td>编译节点所在目录，若已存在直接更新，避免重复还原下载包</td>
         </tr>
 
         <tr>
@@ -1402,6 +1402,17 @@
             <td></td>
             <td>N</td>
             <td></td>
+        </tr>
+
+        <tr>
+            <td>OutputPath</td>
+            <td>输出目录</td>
+            <td>String</td>
+            <td>50</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td>编译产物输出目录，不配置时默认publish</td>
         </tr>
 
         <tr>
