@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.IO.Compression;
-
 using NewLife;
 using NewLife.Log;
 using NewLife.Model;
@@ -193,6 +192,13 @@ public class DeployWorker(StarFactory factory) : IHostedService
     private String BuildProject(CompileCommand cmd, String repoDir, String outputPath)
     {
         var publishDir = Path.Combine(repoDir, outputPath);
+
+        // 编译前先清空输出目录，避免上次编译产物影响
+        if (Directory.Exists(publishDir))
+        {
+            XTrace.WriteLine("清空输出目录：{0}", publishDir);
+            Directory.Delete(publishDir, true);
+        }
 
         // ProjectKind: 1=DotNet, 2=MSBuild, 99=Custom
         switch (cmd.ProjectKind)
