@@ -7,7 +7,7 @@
     <Description>星尘分布式服务框架ASP.NET Core扩展库。提供AddStardust、UseStardust、RegisterService、ConsumeService等中间件与便捷方法，简化服务注册发现与监控接入，支持Web/API应用快速集成星尘平台。</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>4.24</VersionPrefix>
+    <VersionPrefix>4.25</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>
@@ -47,12 +47,6 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="RegistryMiddleware.cs" />
-    <Compile Remove="StarService.cs" />
-    <Compile Remove="WebHelper.cs" />
   </ItemGroup>
 
   <ItemGroup>
