@@ -1,17 +1,22 @@
-﻿using NewLife;
+﻿using Microsoft.AspNetCore.Mvc;
+using Stardust.Data.Nodes;
+using NewLife;
 using NewLife.Cube;
+using NewLife.Cube.Extensions;
+using NewLife.Cube.ViewModels;
+using NewLife.Log;
 using NewLife.Web;
-using Stardust.Data.Deployment;
 using XCode.Membership;
+using static Stardust.Data.Nodes.ProductPackage;
 
-namespace Stardust.Web.Areas.Deployment.Controllers;
+namespace Stardust.Web.Areas.Nodes.Controllers;
 
-/// <summary>应用资源。应用部署集引用的共享资源，发布时一并下发到目标节点</summary>
-[Menu(0, false, Icon = "fa-table")]
-[DeploymentArea]
-public class AppDeployResourceController : DeploymentEntityController<AppDeployResource>
+/// <summary>产品发布包。隶属于发布版本的安装包，面向不同.NET运行时目标</summary>
+[Menu(20, true, Icon = "fa-table")]
+[NodesArea]
+public class ProductPackageController : EntityController<ProductPackage>
 {
-    static AppDeployResourceController()
+    static ProductPackageController()
     {
         //LogOnChange = true;
 
@@ -27,19 +32,19 @@ public class AppDeployResourceController : DeploymentEntityController<AppDeployR
         //    var df = ListFields.AddListField("devices", null, "Onlines");
         //    df.DisplayName = "查看设备";
         //    df.Url = "Device?groupId={Id}";
-        //    df.DataVisible = e => (e as AppDeployResource).Devices > 0;
+        //    df.DataVisible = e => (e as ProductPackage).Devices > 0;
         //    df.Target = "_frame";
         //}
         //{
         //    var df = ListFields.GetField("Kind") as ListField;
-        //    df.GetValue = e => ((Int32)(e as AppDeployResource).Kind).ToString("X4");
+        //    df.GetValue = e => ((Int32)(e as ProductPackage).Kind).ToString("X4");
         //}
         //ListFields.TraceUrl("TraceId");
     }
 
     //private readonly ITracer _tracer;
 
-    //public AppDeployResourceController(ITracer tracer)
+    //public ProductPackageController(ITracer tracer)
     //{
     //    _tracer = tracer;
     //}
@@ -47,16 +52,13 @@ public class AppDeployResourceController : DeploymentEntityController<AppDeployR
     /// <summary>高级搜索。列表页查询、导出Excel、导出Json、分享页等使用</summary>
     /// <param name="p">分页器。包含分页排序参数，以及Http请求参数</param>
     /// <returns></returns>
-    protected override IEnumerable<AppDeployResource> Search(Pager p)
+    protected override IEnumerable<ProductPackage> Search(Pager p)
     {
-        var deployId = p["deployId"].ToInt(-1);
-        var resourceId = p["resourceId"].ToInt(-1);
-        var autoPublish = p["autoPublish"]?.ToBoolean();
-        var enable = p["enable"]?.ToBoolean();
+        var releaseId = p["releaseId"].ToInt(-1);
 
         var start = p["dtStart"].ToDateTime();
         var end = p["dtEnd"].ToDateTime();
 
-        return AppDeployResource.Search(deployId, resourceId, autoPublish, enable, start, end, p["Q"], p);
+        return ProductPackage.Search(releaseId, start, end, p["Q"], p);
     }
 }

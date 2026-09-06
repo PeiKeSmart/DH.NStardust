@@ -7,7 +7,7 @@
     <Description>星尘代理局域网扩展，探测节点并自动安装StarAgent</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>4.24</VersionPrefix>
+    <VersionPrefix>4.25</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>
@@ -19,12 +19,16 @@
     <IsPackable>False</IsPackable>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="DH.NStardust" Version="4.24.2026.707-beta1531" />
+  
+  <ItemGroup Condition="'$(TargetFramework)' == 'net45'">
     <PackageReference Include="SSH.NET" Version="2020.0.2" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(TargetFramework)' != 'net45'">
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+  </ItemGroup>
+  
+  
   <ItemGroup>
     <ProjectReference Include="..\..\DH.NStardust\DH.NStardust.csproj" />
   </ItemGroup>

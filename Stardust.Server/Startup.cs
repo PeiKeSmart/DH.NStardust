@@ -77,7 +77,6 @@ public class Startup
 
         // 业务服务
         services.AddSingleton<NodeService>();
-        services.AddSingleton<AppQueueService>();
         services.AddSingleton<AppTokenService>();
         services.AddSingleton<ConfigService>();
         services.AddSingleton<RegistryService>();
@@ -124,6 +123,7 @@ public class Startup
         services.AddHostedService<ApolloService>();
         services.AddHostedService<ShardTableService>();
         services.AddHostedService<AlarmService>();
+        services.AddHostedService<DotNetSyncService>();
         services.AddHostedService<NodeStatService>();
 
         // 注入Remoting服务

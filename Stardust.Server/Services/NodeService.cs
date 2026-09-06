@@ -164,7 +164,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     /// <param name="reason">注销原因</param>
     /// <param name="ip">IP地址</param>
     /// <returns></returns>
-    public override IOnlineModel Logout(DeviceContext context, String reason, String source)
+    public override IOnlineModel? Logout(DeviceContext context, String? reason, String source)
     {
         using var span = _tracer?.NewSpan($"{Name}Logout", new { context.Code, context.ClientId, reason, source });
 
@@ -503,7 +503,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     #endregion
 
     #region 心跳保活
-    public override IOnlineModel OnPing(DeviceContext context, IPingRequest request)
+    public override IOnlineModel OnPing(DeviceContext context, IPingRequest? request)
     {
         if (context.Device is not Node node) return null;
 
@@ -557,7 +557,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     private static IList<NodeCommand> _commands;
     private static DateTime _nextTime;
 
-    public override CommandModel[] AcquireCommands(DeviceContext context)
+    public override CommandModel[]? AcquireCommands(DeviceContext context)
     {
         // 缓存最近1000个未执行命令，用于快速过滤，避免大量节点在线时频繁查询命令表
         if (_nextTime < DateTime.Now || _totalCommands != NodeCommand.Meta.Count)
@@ -591,8 +591,8 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
                 item.Status = CommandStatus.取消;
             else
             {
-                // 如果命令正在处理中，则短期内不重复下发
-                if (item.Status == CommandStatus.处理中 && item.UpdateTime.AddSeconds(30) > DateTime.Now) continue;
+                // 如果命令正在处理中，则短期内不重复下发。客户端StarAgent具备去重能力，不需要服务端过滤
+                //if (item.Status == CommandStatus.处理中 && item.UpdateTime.AddSeconds(30) > DateTime.Now) continue;
 
                 // 即时指令，或者已到开始时间的未来指令，才增加次数
                 if (item.StartTime.Year < 2000 || item.StartTime < DateTime.Now)
@@ -607,13 +607,15 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         }
         cmds.Update(false);
 
+        span?.Value = rs.Count;
+
         return rs.ToArray();
     }
 
     /// <summary>获取在线。先查缓存再查库</summary>
     /// <param name="context">上下文</param>
     /// <returns></returns>
-    public override IOnlineModel GetOnline(DeviceContext context) => base.GetOnline(context) as NodeOnline;
+    public override IOnlineModel? GetOnline(DeviceContext context) => base.GetOnline(context) as NodeOnline;
 
     public NodeOnline GetOrAddOnline(Node node, String token, String ip)
     {
@@ -714,7 +716,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     /// <summary>创建在线</summary>
     /// <param name="context">上下文</param>
     /// <returns></returns>
-    public override IOnlineModel CreateOnline(DeviceContext context)
+    public override IOnlineModel? CreateOnline(DeviceContext context)
     {
         if (context.Device is not Node node) return null;
 
@@ -748,28 +750,32 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     #endregion
 
     #region 升级更新
-    /// <summary>升级检查</summary>
+    /// <summary>升级检查。新版优先匹配 ProductRelease + ProductPackage，回退到旧 NodeVersion 逻辑</summary>
     /// <param name="channel">更新通道</param>
     /// <returns></returns>
-    public override IUpgradeInfo Upgrade(DeviceContext context, String channel)
+    public override IUpgradeInfo? Upgrade(DeviceContext context, String? channel)
     {
         // 默认Release通道
         if (!Enum.TryParse<NodeChannels>(channel, true, out var ch)) ch = NodeChannels.Release;
         if (ch < NodeChannels.Release) ch = NodeChannels.Release;
 
-        // 找到所有产品版本
         var node = context.Device as Node;
+        var ip = context.UserHost;
+
+        // ---- 新路径：ProductRelease + ProductPackage 匹配 ----
+        var upgradeInfo = TryUpgradeFromRelease(node, ch);
+        if (upgradeInfo != null) return upgradeInfo;
+
+        // ---- 回退路径：旧 NodeVersion 逻辑（兼容已有记录） ----
         var list = NodeVersion.GetValids(ch);
         list = list.Where(e => e.ProductCode.IsNullOrEmpty() || e.ProductCode.EqualIgnoreCase(node.ProductCode)).ToList();
         if (list.Count == 0) return null;
 
-        var ip = context.UserHost;
         using var span = _tracer?.NewSpan(nameof(Upgrade), new { node.Name, node.Code, node.Runtime, node.Framework, node.Frameworks, ip, vers = list.Count });
 
         // 应用过滤规则，使用最新的一个版本
         var pv = list.OrderByDescending(e => e.ID).FirstOrDefault(e => e.Version != node.LastVersion && e.Match(node));
         if (pv == null) return null;
-        //if (pv == null) throw new ApiException(509, "没有升级规则");
 
         // 检查是否已经升级过这个版本
         if (node.LastVersion == pv.Version) return null;
@@ -793,13 +799,59 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         };
     }
 
-    /// <summary>检查节点是否符合规则，并推送dotNet运行时安装指令</summary>
+    /// <summary>尝试从新的 ProductRelease 表中匹配升级</summary>
+    private UpgradeInfo TryUpgradeFromRelease(Node node, NodeChannels channel)
+    {
+        var releases = ProductRelease.GetValids(channel);
+        if (releases.Count == 0) return null;
+
+        var ip = node.UpdateIP;
+
+        foreach (var release in releases)
+        {
+            // 检查是否已经升级过这个版本
+            if (node.LastVersion == release.Version) continue;
+
+            var pkg = release.MatchPackage(node);
+            if (pkg == null) continue;
+
+            node.WriteHistory("自动更新", true, $"channel={channel} version={node.Version} last={node.LastVersion} => Release[{release.Id}] {release.Version} Package[{pkg.TargetRuntime}] {pkg.FileName}", ip);
+
+            node.Channel = channel;
+            node.LastVersion = release.Version;
+            node.Update();
+
+            // 双层取值：Package优先级高于Release，客户端自行处理空Executor
+            var executor = !pkg.Executor.IsNullOrEmpty() ? pkg.Executor : release.Executor;
+            var preinstall = !pkg.Preinstall.IsNullOrEmpty() ? pkg.Preinstall : release.Preinstall;
+
+            return new UpgradeInfo
+            {
+                Version = release.Version,
+                Source = pkg.Source,
+                FileHash = pkg.FileHash,
+                FileSize = pkg.Size,
+                Preinstall = preinstall,
+                Executor = executor,
+                Force = release.Force,
+                Description = release.Remark,
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>检查节点是否符合规则，并推送dotNet运行时安装指令。新版优先匹配 DotNetPackage，回退到旧 NodeVersion 逻辑</summary>
     /// <param name="node"></param>
     /// <param name="ip"></param>
     /// <returns></returns>
-    public NodeVersion CheckDotNet(Node node, Uri baseUri, String ip)
+    public DotNetPackage CheckDotNet(Node node, Uri baseUri, String ip)
     {
-        // 找到所有产品版本
+        // ---- 新路径：DotNetPackage 匹配 ----
+        var pkg = TryDotNetFromPackage(node, baseUri, ip);
+        if (pkg != null) return pkg;
+
+        // ---- 回退路径：旧 NodeVersion(ProductCode=dotNet) 逻辑 ----
         var list = NodeVersion.GetValids(0).Where(e => e.ProductCode.EqualIgnoreCase("dotNet")).ToList();
         if (list.Count == 0) return null;
 
@@ -807,16 +859,6 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
 
         // 应用过滤规则
         list = list.OrderByDescending(e => e.ID).Where(e => e.Match(node)).ToList();
-        //var list2 = new List<NodeVersion>();
-        //foreach (var pv in list)
-        //{
-        //    var rs = pv.MatchResult(node);
-        //    if (rs == null)
-        //        list2.Add(pv);
-        //    else
-        //        span?.AppendTag($"[{pv.Version}] {rs}");
-        //}
-        //list = list2;
         if (list.Count == 0) return null;
 
         // 每个版本都要检查，如果已经推送，则推送下一个
@@ -846,10 +888,54 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
 
             node.WriteHistory("推送dotNet", true, $"version={node.Framework} => [{pv.ID}] {pv.Version} {fmodel.BaseUrl}", ip);
 
-            return pv;
+            return null; // 兼容返回值，旧机制无 DotNetPackage 对象可返回
         }
 
         return null;
+    }
+
+    /// <summary>尝试从新的 DotNetPackage 表中匹配 dotNet 安装包并推送</summary>
+    private DotNetPackage TryDotNetFromPackage(Node node, Uri baseUri, String ip)
+    {
+        var pkg = DotNetPackage.Match(node);
+        if (pkg == null) return null;
+
+        // 检查节点是否已经安装了该版本
+        if (!node.Framework.IsNullOrEmpty())
+        {
+            System.Version.TryParse(pkg.Version, out var targetVer);
+            System.Version.TryParse(node.Framework, out var currentVer);
+            if (currentVer != null && targetVer != null && currentVer >= targetVer && !pkg.Force)
+                return null;
+        }
+
+        // 准备安装框架所需要的参数
+        var fmodel = new FrameworkModel
+        {
+            Version = pkg.Version,
+            BaseUrl = pkg.Source,
+            Force = pkg.Force,
+        };
+        // 如果没有指定源，则使用默认源
+        if (fmodel.BaseUrl.IsNullOrEmpty()) fmodel.BaseUrl = new Uri(baseUri, "/files/dotnet/").ToString();
+
+        // 检查是否已经推送过这个版本（避免重复推送）
+        var key = $"nodeNet:{node.Code}-{pkg.Version}";
+        if (_cacheProvider.Cache.Get<String>(key) == pkg.Version) return null;
+        _cacheProvider.Cache.Set(key, pkg.Version, 600);
+
+        var model = new CommandInModel
+        {
+            Code = node.Code,
+            Command = "framework/install",
+            Argument = fmodel.ToJson(),
+            Expire = 60,
+        };
+        _ = SendCommand(node, model, $"DotNetPackage:{pkg.Version}");
+
+        node.WriteHistory("推送dotNet", true, $"version={node.Framework} => Package[{pkg.Id}] {pkg.Version}-{pkg.Kind} {pkg.Source}", ip);
+
+        return pkg;
     }
     #endregion
 
@@ -858,7 +944,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     /// <param name="model"></param>
     /// <param name="token">应用令牌</param>
     /// <returns></returns>
-    public override Task<CommandReplyModel> SendCommand(DeviceContext context, CommandInModel model, CancellationToken cancellationToken = default)
+    public override Task<CommandReplyModel?> SendCommand(DeviceContext context, CommandInModel model, CancellationToken cancellationToken = default)
     {
         if (model.Code.IsNullOrEmpty()) throw new ArgumentNullException(nameof(model.Code), "必须指定节点");
         if (model.Command.IsNullOrEmpty()) throw new ArgumentNullException(nameof(model.Command));
@@ -904,28 +990,19 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         var commandModel = BuildCommand(node, cmd);
         var code = node.Code;
 
-        //var queue = _cacheProvider.GetQueue<String>($"nodecmd:{node.Code}");
-        //queue.Add(commandModel.ToJson());
-        await _sessionManager.PublishAsync(code, commandModel, null, cancellationToken);
-
-        // 挂起等待。借助redis队列，等待响应
-        var timeout = model.Timeout;
-        if (timeout > 0)
+        // 通过SessionManager发布命令，内置timeout机制等待响应（跨实例广播）
+        var reply = await _sessionManager.PublishAsync(code, commandModel, null, model.Timeout, cancellationToken);
+        if (reply != null)
         {
-            var q = _cacheProvider.GetQueue<CommandReplyModel>($"nodereply:{cmd.Id}");
-            var reply = await q.TakeOneAsync(timeout, cancellationToken);
-            if (reply != null)
-            {
-                // 埋点
-                using var span = _tracer?.NewSpan($"mq:NodeCommandReply", reply);
+            // 埋点
+            using var span = _tracer?.NewSpan($"mq:NodeCommandReply", reply);
 
-                if (reply.Status == CommandStatus.错误)
-                    throw new Exception($"命令错误！{reply.Data}");
-                else if (reply.Status == CommandStatus.取消)
-                    throw new Exception($"命令已取消！{reply.Data}");
+            if (reply.Status == CommandStatus.错误)
+                throw new Exception($"命令错误！{reply.Data}");
+            else if (reply.Status == CommandStatus.取消)
+                throw new Exception($"命令已取消！{reply.Data}");
 
-                return reply;
-            }
+            return reply;
         }
 
         return null;
@@ -942,13 +1019,8 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         cmd.Result = model.Data;
         cmd.Update();
 
-        // 通知命令发布者，指令已完成
-        var topic = $"nodereply:{cmd.Id}";
-        var q = _cacheProvider.GetQueue<CommandReplyModel>(topic);
-        q.Add(model);
-
-        // 设置过期时间，过期自动清理
-        _cacheProvider.Cache.SetExpire(topic, TimeSpan.FromSeconds(60));
+        // 通过会话管理器内置的响应事件总线广播响应（跨实例广播不阻塞）
+        _ = _sessionManager.PublishResponseAsync(model, default);
 
         return 1;
     }
@@ -991,9 +1063,9 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     #endregion
 
     #region 辅助
-    public override IDeviceModel QueryDevice(String code) => Node.FindByCode(code);
+    public override IDeviceModel? QueryDevice(String code) => Node.FindByCode(code);
 
-    public override IOnlineModel QueryOnline(String sessionId) => NodeOnline.FindBySessionId(sessionId, true);
+    public override IOnlineModel? QueryOnline(String sessionId) => NodeOnline.FindBySessionId(sessionId, true);
 
     protected override String GetSessionId(DeviceContext context) => context.Code ?? base.GetSessionId(context);
 
