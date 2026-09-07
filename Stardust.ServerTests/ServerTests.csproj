@@ -8,6 +8,7 @@
     <LangVersion>latest</LangVersion>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
+    <NoWarn>1701;1702;ASPDEPR008</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
