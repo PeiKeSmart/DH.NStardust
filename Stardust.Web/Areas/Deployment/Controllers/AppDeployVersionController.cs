@@ -190,6 +190,18 @@ public class AppDeployVersionController : DeploymentEntityController<AppDeployVe
         {
             var deploy = entity.Deploy;
 
+            // 保存文件完成后、广播前执行识别与注入，确保广播携带最终哈希
+            // 上游 NewLife.Cube 6.x 提供 OnFileSaved 虚方法作为该时机钩子，
+            // 但本项目依赖的 DH.NCube.Core 4.22 尚无此方法，故在此处等价实现。
+            // 待 DH.NCube 补齐 OnFileSaved 并升级引用后，可改回重写 OnFileSaved
+            _deployService.ReadDotNet(entity, att, uploadPath);
+
+            // 处理Nginx
+            if (deploy.Port == 0 || deploy.Urls.IsNullOrEmpty())
+                _deployService.ReadNginx(entity, att, uploadPath);
+            if (deploy.Port > 0 && !deploy.Urls.IsNullOrEmpty())
+                _deployService.BuildNginx(entity, att, uploadPath);
+
             entity.Hash = att.Hash;
             entity.Size = att.Size;
             entity.Url = $"/cube/file?id={att.Id}{att.Extension}";
@@ -211,28 +223,6 @@ public class AppDeployVersionController : DeploymentEntityController<AppDeployVe
 
         // 不给上层拿到附件，避免Url字段被覆盖
         return null;
-    }
-
-    /// <summary>保存文件完成后、广播前执行识别与注入，确保广播携带最终哈希</summary>
-    /// <param name="entity">实体对象</param>
-    /// <param name="att">附件实体</param>
-    /// <param name="uploadPath">上传目录</param>
-    /// <param name="file">上传文件</param>
-    /// <returns></returns>
-    protected override async Task OnFileSaved(AppDeployVersion entity, Attachment att, String uploadPath, IFormFile file)
-    {
-        var deploy = entity.Deploy;
-
-        _deployService.ReadDotNet(entity, att, uploadPath);
-
-        // 处理Nginx
-        if (deploy.Port == 0 || deploy.Urls.IsNullOrEmpty())
-            _deployService.ReadNginx(entity, att, uploadPath);
-        if (deploy.Port > 0 && !deploy.Urls.IsNullOrEmpty())
-            _deployService.BuildNginx(entity, att, uploadPath);
-
-        // 广播（此时附件哈希已更新为最终值，分布式拉取校验一致）
-        await base.OnFileSaved(entity, att, uploadPath, file);
     }
 
     [EntityAuthorize(PermissionFlags.Update)]

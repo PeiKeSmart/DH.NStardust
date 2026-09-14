@@ -34,12 +34,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\DH.NStardust\Managers\FirewallManager.cs" Link="Managers\FirewallManager.cs" />
     <Compile Include="..\DH.NStardust\Managers\ServiceController.cs" Link="Managers\ServiceController.cs" />
     <Compile Include="..\DH.NStardust\Managers\ServiceManager.cs" Link="Managers\ServiceManager.cs" />
   </ItemGroup>
   
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.Globalization.Invariant" Value="true" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="WebPanel\wwwroot\**" />
   </ItemGroup>
 
   <ItemGroup>

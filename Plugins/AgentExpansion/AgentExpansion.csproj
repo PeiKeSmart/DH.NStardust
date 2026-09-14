@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFrameworks>net45;netcoreapp3.1;net5.0;net6.0;net7.0;net8.0;net9.0;net10.0</TargetFrameworks>
     <AssemblyTitle>代理扩展</AssemblyTitle>
     <Description>星尘代理局域网扩展，探测节点并自动安装StarAgent</Description>
@@ -20,10 +19,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   
+  <!-- SSH.NET 2023.0.0 起移除 net40/net45 目标，2020.0.2 是最后一个支持 net45 的版本 -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net45'">
     <PackageReference Include="SSH.NET" Version="2020.0.2" />
   </ItemGroup>
 
+  <!-- 最新版 2026.0.0 支持 net462/netstandard2.0/net8+，netstandard2.0 资产覆盖 net461+ 及全部新运行时 -->
   <ItemGroup Condition="'$(TargetFramework)' != 'net45'">
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>

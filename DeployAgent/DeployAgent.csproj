@@ -18,10 +18,12 @@
     <!--<AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>-->
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
     <NoWarn>1701;1702;NU5104;NETSDK1138;CS7035;CS8600;CS8602;CS8603;CS8604;CS8618;CS8619;CS8625</NoWarn>
     <IsPackable>True</IsPackable>
     <PackAsTool>True</PackAsTool>
     <ToolCommandName>dhstardeploy</ToolCommandName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -39,6 +41,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DH.NStardust\DH.NStardust.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DH.NAgent" Version="4.25.2026.906-beta0858" />
   </ItemGroup>
 
   <ItemGroup>
