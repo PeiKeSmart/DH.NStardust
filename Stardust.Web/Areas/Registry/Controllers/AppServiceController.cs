@@ -1,4 +1,4 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.ViewModels;
 using NewLife.Web;
@@ -7,6 +7,7 @@ using XCode.Membership;
 
 namespace Stardust.Web.Areas.Registry.Controllers;
 
+/// <summary>应用服务。管理应用实例发布的服务信息，查看服务绑定关系</summary>
 [RegistryArea]
 [Menu(0, false)]
 public class AppServiceController : RegistryEntityController<AppService>
@@ -34,6 +35,9 @@ public class AppServiceController : RegistryEntityController<AppService>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppService> Search(Pager p)
     {
         PageSetting.EnableAdd = false;

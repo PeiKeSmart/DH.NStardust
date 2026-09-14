@@ -1,20 +1,25 @@
 ﻿using System.Diagnostics;
+using System.Net;
 using System.Reflection;
 using NewLife;
 using NewLife.Agent;
 using NewLife.Agent.Models;
 using NewLife.Log;
 using NewLife.Model;
+using NewLife.Net;
 using NewLife.Remoting;
 using NewLife.Remoting.Clients;
+using NewLife.Serialization;
 using NewLife.Threading;
 using Stardust;
 using Stardust.Deployment;
 using Stardust.Managers;
 using Stardust.Models;
 using Stardust.Plugins;
+using StarAgent.WebPanel;
 using IHost = NewLife.Agent.IHost;
 using ServiceModel = NewLife.Agent.Models.ServiceModel;
+using NewLife.Agent.WebPanel;
 
 namespace StarAgent;
 
@@ -138,6 +143,22 @@ internal class MyService : ServiceBase, IServiceProvider
         _container = ObjectContainer.Current;
         Provider = ObjectContainer.Provider;
     }
+
+    #region Web面板
+    /// <summary>创建Web管理面板。返回 StarAgent 定制面板实例</summary>
+    /// <param name="service">所属服务</param>
+    /// <returns>StarAgent Web管理面板</returns>
+    protected override AgentWebPanel CreateWebPanel(ServiceBase service)
+    {
+        WriteLog("创建 StarAgent Web 管理面板");
+
+        var set = NewLife.Agent.Setting.Current;
+        set.WebPort = AgentSetting.LocalPort;
+        set.Save();
+
+        return new StarPanel(service);
+    }
+    #endregion
 
     #region 服务控制
     protected override void Init()
@@ -306,10 +327,49 @@ internal class MyService : ServiceBase, IServiceProvider
 
     private void OnServiceChanged(Object? sender, EventArgs eventArgs)
     {
-        // 服务改变时，保存到配置文件
         var set = AgentSetting;
-        set.Services = _Manager.Services.Select(e => e.Clone()).ToArray();
-        set.Save();
+        var mgrServices = _Manager.Services ?? [];
+        var setServices = set.Services ?? [];
+
+        // 按名称索引配置中的服务
+        var setSvcMap = setServices
+            .GroupBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        var changed = false;
+
+        // 使用可变列表保存合并结果
+        var newServices = setServices.ToList();
+
+        foreach (var mgrSvc in mgrServices)
+        {
+            if (setSvcMap.TryGetValue(mgrSvc.Name, out var setSvc))
+            {
+                // 已有服务：用管理器最新值替换（来自平台部署的值更权威）
+                var idx = newServices.IndexOf(setSvc);
+                if (idx >= 0)
+                {
+                    // 仅当实际有变化时才替换，避免不必要的写入
+                    if (newServices[idx].ToJson() != mgrSvc.ToJson())
+                    {
+                        newServices[idx] = mgrSvc.Clone();
+                        changed = true;
+                    }
+                }
+            }
+            else
+            {
+                // 新增服务：添加到配置，确保持久化
+                newServices.Add(mgrSvc.Clone());
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            set.Services = newServices.ToArray();
+            set.Save();
+        }
     }
 
     /// <summary>服务停止</summary>
@@ -513,8 +573,8 @@ internal class MyService : ServiceBase, IServiceProvider
     {
         try
         {
-            // 必须支持Udp，因为需要支持局域网广播搜索功能
-            var svr = new ApiServer(port)
+            // 仅 Udp，局域网广播搜索 + 本地进程 UDP RPC；Tcp 由 HttpServer（Web 面板）接管
+            var svr = new ApiServer(new NetUri(NetType.Udp, IPAddress.Any.ToString(), port))
             {
                 ReuseAddress = true,
                 Tracer = _factory?.Tracer,

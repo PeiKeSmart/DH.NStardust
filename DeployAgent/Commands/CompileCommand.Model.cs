@@ -3,8 +3,21 @@ namespace DeployAgent;
 /// <summary>编译命令参数</summary>
 public class CompileCommand
 {
-    /// <summary>代码库。下载代码的位置</summary>
+    /// <summary>
+    /// 代码库地址。下载代码的位置，支持 SSH（git@host:repo.git）和 HTTP（http://user@host/repo.git）格式。
+    /// <para>Linux 机器如果使用 HTTP 格式，必须使用带用户名的 HTTP 格式（http://user@host/repo.git），否则 Git 会因无法弹出认证窗口而失败。</para>
+    /// <para>Windows 机器首次使用 HTTP 格式时，需在目标机器上手动执行一次 git clone 以让 Git Credential Manager 缓存凭据，后续 DeployAgent 即可无交互拉取。</para>
+    /// </summary>
     public String? Repository { get; set; }
+
+    /// <summary>仓库密钥。SSH 私钥，用于非交互式拉取私有仓库代码</summary>
+    public String? DeployKey { get; set; }
+
+    /// <summary>仓库用户名。HTTPS 克隆时的用户名</summary>
+    public String? RepoUserName { get; set; }
+
+    /// <summary>仓库密码。AES 加密后的密文（Hex 格式），下发时用节点 Secret 加密</summary>
+    public String? RepoPassword { get; set; }
 
     /// <summary>分支</summary>
     public String? Branch { get; set; } = "main";

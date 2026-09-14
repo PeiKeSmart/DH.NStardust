@@ -102,6 +102,12 @@
         <Column Name="Headers" DataType="String" Length="1000" Description="请求头匹配。JSON格式，如 {key:value}" />
         <Column Name="StripPrefix" DataType="Boolean" Description="去除前缀。转发时去除匹配的路径前缀" />
         <Column Name="AddHeaders" DataType="String" Length="1000" Description="添加请求头。JSON格式，如 {key:value}" />
+        <Column Name="WebSocket" DataType="Boolean" Description="WebSocket。是否允许WebSocket升级，开启后检测Upgrade头并透明转发帧数据" />
+        <Column Name="StaticRoot" DataType="String" Length="200" Description="静态文件根目录。设置后该路由不从反向代理转发，而是直接托管本地静态文件" />
+        <Column Name="IndexFile" DataType="String" Description="默认首页。默认index.html" />
+        <Column Name="DirectoryBrowse" DataType="Boolean" Description="目录浏览。是否允许浏览目录列表" />
+        <Column Name="IsStaticRoute" DataType="Boolean" Description="静态文件路由。开启后不走反向代理转发，改为直接托管本地静态文件" />
+        <Column Name="SPAFallback" DataType="Boolean" Description="SPA回退。文件不存在时回退到index.html，用于支持前端history路由模式" />
         <Column Name="Remark" DataType="String" Length="500" Description="备注" />
         <Column Name="CreateUser" DataType="String" Description="创建者" />
         <Column Name="CreateTime" DataType="DateTime" Description="创建时间" />
@@ -114,25 +120,6 @@
         <Index Columns="ClusterId" />
         <Index Columns="Domain" />
         <Index Columns="Priority" />
-      </Indexes>
-    </Table>
-    <Table Name="GatewayCert" Description="网关证书。SSL证书配置，用于HTTPS终止和SNI匹配">
-      <Columns>
-        <Column Name="Id" DataType="Int32" Identity="True" PrimaryKey="True" Description="编号" />
-        <Column Name="Name" DataType="String" Master="True" Nullable="False" Description="名称" />
-        <Column Name="Enable" DataType="Boolean" DefaultValue="True" Description="启用" />
-        <Column Name="Domain" DataType="String" Length="200" Nullable="False" Description="域名。匹配SNI，支持通配符 *.example.com" />
-        <Column Name="CertFile" DataType="String" Length="500" Description="证书文件路径。PEM格式" />
-        <Column Name="KeyFile" DataType="String" Length="500" Description="私钥文件路径。PEM格式" />
-        <Column Name="Remark" DataType="String" Length="500" Description="备注" />
-        <Column Name="CreateUser" DataType="String" Description="创建者" />
-        <Column Name="CreateTime" DataType="DateTime" Description="创建时间" />
-        <Column Name="UpdateUser" DataType="String" Description="更新者" />
-        <Column Name="UpdateTime" DataType="DateTime" Description="更新时间" />
-      </Columns>
-      <Indexes>
-        <Index Columns="Name" Unique="True" />
-        <Index Columns="Domain" />
       </Indexes>
     </Table>
   </Tables>

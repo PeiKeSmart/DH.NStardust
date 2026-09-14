@@ -1,4 +1,4 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
 using NewLife.Web;
@@ -6,6 +6,7 @@ using Stardust.Data.Configs;
 
 namespace Stardust.Web.Areas.Configs.Controllers;
 
+/// <summary>配置历史。记录配置的变更历史，支持版本追溯和回滚检查</summary>
 [Menu(0, false)]
 [ConfigsArea]
 public class ConfigHistoryController : ConfigsEntityController<ConfigHistory>
@@ -24,6 +25,9 @@ public class ConfigHistoryController : ConfigsEntityController<ConfigHistory>
         ListFields.TraceUrl();
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<ConfigHistory> Search(Pager p)
     {
         var configId = p["configId"].ToInt(-1);

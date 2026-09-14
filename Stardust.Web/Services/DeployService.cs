@@ -1,11 +1,16 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using NewLife;
 using NewLife.Log;
+using NewLife.Remoting.Models;
+using NewLife.Security;
 using NewLife.Serialization;
 using Stardust.Data.Deployment;
 using Stardust.Deployment;
 using Stardust.Models;
+using Stardust.Server;
 using Attachment = NewLife.Cube.Entity.Attachment;
 
 namespace Stardust.Web.Services;
@@ -17,7 +22,7 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
     /// <param name="buildNode">编译节点</param>
     /// <param name="action">操作。Build-Upload/Package-Upload</param>
     /// <param name="ip">客户端IP</param>
-    public async Task Compile(AppDeploy app, AppBuildNode buildNode, String action, String ip, CancellationToken cancellationToken = default)
+    public async Task<Int32> Compile(AppDeploy app, AppBuildNode buildNode, String action, String ip, CancellationToken cancellationToken = default, Boolean writeHistory = true)
     {
         if (buildNode == null) throw new ArgumentNullException(nameof(buildNode));
 
@@ -30,6 +35,7 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
 
         var msg = "";
         var success = true;
+        CommandReplyModel? reply = null;
         try
         {
             // 根据操作类型决定编译步骤
@@ -51,6 +57,8 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
             var cmd = new CompileCommand
             {
                 Repository = app.Repository,
+                DeployKey = app.DeployKey,
+                RepoUserName = app.RepoUserName,
                 Branch = app.Branch,
                 SourcePath = buildNode.SourcePath,
                 ProjectPath = app.ProjectPath,
@@ -64,10 +72,27 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
                 PackageOutput = packageOutput,
                 UploadPackage = uploadPackage,
             };
-            var args = cmd.ToJson();
-            msg = args;
 
-            await starFactory.SendNodeCommandAsync(buildNode.Node.Code, "deploy/compile", args, 0, 3600, 0, cancellationToken);
+            // 处理仓库密码：用系统密钥解密存储密文，再用节点密钥加密下发
+            if (!app.RepoPassword.IsNullOrEmpty() && buildNode.Node != null)
+            {
+                var key = StarServerSetting.Current.TokenSecret.Split(':')[1];
+                var pass = Encoding.UTF8.GetBytes(key);
+                using var aes = Aes.Create();
+                var plainPassword = Encoding.UTF8.GetString(aes.Decrypt(app.RepoPassword.ToHex(), pass, CipherMode.CBC, PaddingMode.PKCS7));
+
+                var nodePass = Encoding.UTF8.GetBytes(buildNode.Node.Secret);
+                using var aes2 = Aes.Create();
+                cmd.RepoPassword = aes2.Encrypt(Encoding.UTF8.GetBytes(plainPassword), nodePass, CipherMode.CBC, PaddingMode.PKCS7).ToHex();
+            }
+
+            var args = cmd.ToJson();
+            // 脱敏：生成历史记录副本，去掉 DeployKey 和 Repository 中的凭据
+            var safeCmd = cmd.RedactForHistory();
+            msg = safeCmd.ToJson();
+
+            // fire-and-forget 下发（timeout=0 表示不等待节点回包）。返回 NodeCommand.Id 供调用方（流水线）记录 CommandId
+            reply = await starFactory.SendNodeCommandAsync(buildNode.Node.Code, "deploy/compile", args, 0, 3600, 0, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -79,9 +104,16 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
         }
         finally
         {
-            var hi = AppDeployHistory.Create(buildNode.DeployId, buildNode.NodeId, $"deploy/compile/{action}", success, msg, ip);
-            hi.SaveAsync();
+            // writeHistory:false 时（如流水线）跳过写入，真实历史由节点 PostEvents 与 CommandReply 事件负责
+            if (writeHistory)
+            {
+                var hi = AppDeployHistory.Create(buildNode.DeployId, buildNode.NodeId, $"deploy/compile/{action}", success, msg, ip);
+                hi.SaveAsync();
+            }
         }
+
+        // 异常时由 catch 的 throw 向外传播，不会执行到此处；正常返回命令 Id（fire-and-forget 时 SendNodeCommandAsync 返回 null，则回退 0）
+        return (Int32)(reply?.Id ?? 0);
     }
 
     /// <summary>发布控制</summary>
@@ -91,8 +123,7 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
     /// <param name="ip">客户端IP</param>
     /// <param name="startTime">开始时间</param>
     /// <param name="timeout">超时时间</param>
-    /// <param name="resources">资源列表。逗号分隔的资源名称</param>
-    public async Task Control(AppDeploy app, AppDeployNode deployNode, String action, String ip, Int32 startTime, Int32 timeout, String[] resources = null, CancellationToken cancellationToken = default)
+    public async Task<Int32> Control(AppDeploy app, AppDeployNode deployNode, String action, String ip, Int32 startTime, Int32 timeout, CancellationToken cancellationToken = default, Boolean writeHistory = true)
     {
         if (deployNode == null) throw new ArgumentNullException(nameof(deployNode));
 
@@ -105,13 +136,14 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
 
         var msg = "";
         var success = true;
+        CommandReplyModel? reply = null;
         try
         {
             switch (action.ToLower())
             {
                 case "install":
                     action = "deploy/install";
-                    Install(deployNode, resources);
+                    Install(deployNode);
                     break;
                 case "start":
                     action = "deploy/start";
@@ -140,7 +172,8 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
             var args = new { deployNode.Id, DeployName = deployName, app?.AppName }.ToJson();
             msg = args;
 
-            await starFactory.SendNodeCommandAsync(deployNode.Node.Code, action, args, startTime, startTime + 60, timeout, cancellationToken);
+            // fire-and-forget 下发（timeout=0 表示不等待节点回包）。返回 NodeCommand.Id 供调用方（流水线）记录 CommandId
+            reply = await starFactory.SendNodeCommandAsync(deployNode.Node.Code, action, args, startTime, startTime + 60, timeout, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -152,43 +185,23 @@ public class DeployService(StarFactory starFactory, ITracer tracer)
         }
         finally
         {
-            var hi = AppDeployHistory.Create(deployNode.DeployId, deployNode.NodeId, action, success, msg, ip);
-            hi.SaveAsync();
+            // writeHistory:false 时（如流水线）跳过写入，真实历史由节点 PostEvents 与 CommandReply 事件负责
+            if (writeHistory)
+            {
+                var hi = AppDeployHistory.Create(deployNode.DeployId, deployNode.NodeId, action, success, msg, ip);
+                hi.SaveAsync();
+            }
         }
+
+        // 异常时由 catch 的 throw 向外传播，不会执行到此处；正常返回命令 Id（fire-and-forget 时 SendNodeCommandAsync 返回 null，则回退 0）
+        return (Int32)(reply?.Id ?? 0);
     }
 
     /// <summary>安装应用</summary>
     /// <param name="deployNode">部署节点</param>
-    /// <param name="resources">资源列表。逗号分隔的资源名称</param>
-    public void Install(AppDeployNode deployNode, String[] resources = null)
+    public void Install(AppDeployNode deployNode)
     {
         deployNode.Enable = true;
-
-        // 记录本次发布携带的资源
-        if (resources != null && resources.Length > 0)
-        {
-            var list = new List<String>();
-            //var resourceNames = resources.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var name in resources)
-            {
-                // 查找资源的最新版本
-                var res = AppResource.FindByName(name);
-                if (res != null && res.Enable)
-                {
-                    // 如果资源没有设置当前版本，取最新启用的版本
-                    var resVer = AppResourceVersion.FindAllByResourceId(res.Id)
-                        .Where(e => e.Enable)
-                        .OrderByDescending(e => e.Id)
-                        .FirstOrDefault();
-                    var ver = resVer?.Version;
-
-                    if (!ver.IsNullOrEmpty())
-                        list.Add($"{name}:{ver}");
-                }
-            }
-            deployNode.Resources = list.Join(";");
-        }
-
         deployNode.Update();
     }
 

@@ -1,10 +1,11 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Web;
 using Stardust.Data.Nodes;
 
 namespace Stardust.Web.Areas.Nodes.Controllers;
 
+/// <summary>节点规则。为节点配置自定义规则（告警阈值、部署策略），支持按条件匹配</summary>
 [Menu(10)]
 [NodesArea]
 public class NodeRuleController : EntityController<NodeRule>
@@ -24,6 +25,9 @@ public class NodeRuleController : EntityController<NodeRule>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<NodeRule> Search(Pager p)
     {
         //var appId = p["appId"].ToInt(-1);

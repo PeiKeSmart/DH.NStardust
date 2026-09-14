@@ -17,6 +17,7 @@ using XCode.Configuration;
 
 namespace Stardust.Server.Services;
 
+/// <summary>节点服务。处理 StarAgent 节点的注册登录、心跳保活、在线状态管理和命令下发</summary>
 public class NodeService : DefaultDeviceService<Node, NodeOnline>
 {
     private readonly ITokenService _tokenService;
@@ -25,8 +26,18 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     private readonly NodeSessionManager _sessionManager;
     private readonly ICacheProvider _cacheProvider;
     private readonly ITracer _tracer;
+    private readonly DnsService _dnsService;
 
-    public NodeService(ITokenService tokenService, IPasswordProvider passwordProvider, StarServerSetting setting, NodeSessionManager sessionManager, ICacheProvider cacheProvider, ITracer tracer, IServiceProvider serviceProvider) : base(sessionManager, passwordProvider, cacheProvider, serviceProvider)
+    /// <summary>实例化节点服务</summary>
+    /// <param name="tokenService">令牌服务</param>
+    /// <param name="passwordProvider">密码提供者</param>
+    /// <param name="setting">服务端设置</param>
+    /// <param name="sessionManager">节点会话管理器</param>
+    /// <param name="cacheProvider">缓存提供者</param>
+    /// <param name="tracer">跟踪器</param>
+    /// <param name="dnsService">DDNS 服务</param>
+    /// <param name="serviceProvider">服务提供者</param>
+    public NodeService(ITokenService tokenService, IPasswordProvider passwordProvider, StarServerSetting setting, NodeSessionManager sessionManager, ICacheProvider cacheProvider, ITracer tracer, DnsService dnsService, IServiceProvider serviceProvider) : base(sessionManager, passwordProvider, cacheProvider, serviceProvider)
     {
         _tokenService = tokenService;
         _passwordProvider = passwordProvider;
@@ -34,6 +45,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         _sessionManager = sessionManager;
         _cacheProvider = cacheProvider;
         _tracer = tracer;
+        _dnsService = dnsService;
 
         Name = "Node";
     }
@@ -120,6 +132,10 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     }
 
     /// <summary>鉴权后的登录处理。修改设备信息、创建在线记录和写日志</summary>
+    /// <remarks>
+    /// LoginTime 和 Fill 数据在本方法中设置后，由基类 <c>DefaultDeviceService.Login</c>
+    /// 统一调用 <c>(context.Online as IEntity)?.Update()</c> 持久化，此处无需单独保存。
+    /// </remarks>
     /// <param name="context">上下文</param>
     /// <param name="request">登录请求</param>
     public override void OnLogin(DeviceContext context, ILoginRequest request)
@@ -141,23 +157,27 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
 
         node.UpdateIP = ip;
         node.FixNameByRule();
+
+        // 记录旧IP，用于DDNS检测（Login会更新LastLoginIP）
+        var oldIp = node.LastLoginIP;
+
         node.Login(inf.Node, ip);
 
         var online = context.Online = GetOnline(context) ?? CreateOnline(context);
-        if (online is NodeOnline olt && inf.Node != null) olt.Fill(inf.Node);
-
-        //// 设置令牌
-        //var tokenModel = tokenService.IssueToken(node.Code, inf.ClientId);
-
-        //// 在线记录
-        //var olt = GetOrAddOnline(node, tokenModel.AccessToken, ip);
-        //olt.Save(inf.Node, null, tokenModel.AccessToken, ip);
+        if (online is NodeOnline olt)
+        {
+            olt.LoginTime = DateTime.Now;
+            if (inf.Node != null) olt.Fill(inf.Node);
+        }
 
         // 登录历史
         WriteHistory(context, "节点鉴权", true, $"[{node.Name}/{node.Code}]鉴权成功 " + inf.ToJson(false, false, false));
 
         // 检查节点上线恢复
         NodeOnlineService.CheckOnline(node);
+
+        // DDNS检测。节点上线时检测IP变化并更新DNS记录
+        _ = _dnsService.CheckNodeIPChange(node, ip, oldIp);
     }
 
     /// <summary>注销</summary>
@@ -191,13 +211,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         var online = base.Logout(context, reason, source);
         if (online is NodeOnline online2 && context.Device is Node node)
         {
-            // 计算在线时长
-            if (online2.CreateTime.Year > 2000)
-            {
-                node.OnlineTime += (Int32)(DateTime.Now - online2.CreateTime).TotalSeconds;
-                node.Update();
-            }
-
+            // 注销时基类已通过 SettleOnline 结算在线时长并清空 LoginTime
             NodeOnlineService.CheckOffline(node, "注销");
         }
 
@@ -529,7 +543,7 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
             {
                 foreach (var f in fs)
                 {
-                    if (System.Version.TryParse(f, out var v) && (max == null || max < v))
+                    if (Version.TryParse(f, out var v) && (max == null || max < v))
                         max = v;
                 }
                 node.Framework = max?.ToString();
@@ -541,14 +555,10 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         //node.SaveAsync();
         node.Update();
 
-        //var online = GetOrAddOnline(node, context.Token, context.UserHost);
         var online = base.OnPing(context, request) as NodeOnline;
-        //online.Save(null, inf, context.Token, context.UserHost);
 
-        //context.Online = online;
-
-        //// 下发部署的应用服务
-        //rs.Services = GetServices(node.ID);
+        // DDNS检测。心跳时检测IP变化并更新DNS记录
+        _ = _dnsService.CheckNodeIPChange(node, context.UserHost);
 
         return online;
     }
@@ -612,92 +622,20 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         return rs.ToArray();
     }
 
-    /// <summary>获取在线。先查缓存再查库</summary>
-    /// <param name="context">上下文</param>
-    /// <returns></returns>
-    public override IOnlineModel? GetOnline(DeviceContext context) => base.GetOnline(context) as NodeOnline;
-
-    public NodeOnline GetOrAddOnline(Node node, String token, String ip)
+    /// <summary>结算在线时长。将本次会话时长累加到节点的 OnlineTime</summary>
+    /// <param name="online">在线实体</param>
+    /// <param name="device">设备信息</param>
+    protected override void OnSettleOnline(IOnlineModel online, IDeviceModel device)
     {
-        var localIp = node?.IP;
-        if (localIp.IsNullOrEmpty()) localIp = ip;
+        if (online is not NodeOnline online2 || device is not Node node) return;
 
-        return GetOnline(node, localIp) ?? CreateOnline(node, token, ip);
-    }
-
-    /// <summary>获取在线</summary>
-    /// <param name="node"></param>
-    /// <returns></returns>
-    public NodeOnline GetOnline(Node node, String ip)
-    {
-        //var sid = $"{node.ID}@{ip}";
-        var sid = node.Code;
-        var olt = _cacheProvider.InnerCache.Get<NodeOnline>($"NodeOnline:{sid}");
-        if (olt != null)
+        var end = online2.UpdateTime > online2.LoginTime ? online2.UpdateTime : DateTime.Now;
+        var delta = (Int32)(end - online2.LoginTime).TotalSeconds;
+        if (delta > 0)
         {
-            //_cacheProvider.InnerCache.SetExpire($"NodeOnline:{sid}", TimeSpan.FromSeconds(120));
-            return olt;
+            node.OnlineTime += delta;
+            node.Update();
         }
-
-        olt = NodeOnline.FindBySessionID(sid);
-        if (olt != null) UpdateOnline(node, olt);
-
-        return olt;
-    }
-
-    /// <summary>检查在线</summary>
-    /// <param name="node"></param>
-    /// <returns></returns>
-    public NodeOnline CreateOnline(Node node, String token, String ip)
-    {
-        using var span = _tracer?.NewSpan($"{Name}CreateOnline", new { node.Code, ip });
-
-        //var sid = $"{node.ID}@{ip}";
-        var sid = node.Code;
-        var olt = NodeOnline.GetOrAdd(sid);
-        olt.ProjectId = node.ProjectId;
-        olt.NodeID = node.ID;
-        olt.Name = node.Name;
-        olt.ProductCode = node.ProductCode;
-        olt.IP = node.IP;
-        olt.Category = node.Category;
-        olt.ProvinceID = node.ProvinceID;
-        olt.CityID = node.CityID;
-        olt.Address = node.Address;
-        olt.Location = node.Location;
-        olt.OSKind = node.OSKind;
-        olt.Version = node.Version;
-        olt.CompileTime = node.CompileTime;
-        olt.Memory = node.Memory;
-        olt.MACs = node.MACs;
-        //olt.COMs = node.COMs;
-        olt.Token = token;
-        olt.CreateIP = ip;
-        olt.UpdateIP = ip;
-
-        olt.Creator = Environment.MachineName;
-
-        //_cacheProvider.InnerCache.Set($"NodeOnline:{sid}", olt, 120);
-        UpdateOnline(node, olt);
-
-        return olt;
-    }
-
-    /// <summary>更新在线状态</summary>
-    /// <param name="node"></param>
-    /// <param name="online"></param>
-    public void UpdateOnline(Node node, NodeOnline online)
-    {
-        var sid = node.Code;
-        _cacheProvider.InnerCache.Set($"NodeOnline:{sid}", online, 120);
-    }
-
-    /// <summary>删除在线状态</summary>
-    /// <param name="node"></param>
-    public void RemoveOnline(Node node)
-    {
-        var sid = node.Code;
-        _cacheProvider.InnerCache.Remove($"NodeOnline:{sid}");
     }
 
     /// <summary>设置设备的长连接上线/下线</summary>
@@ -706,9 +644,20 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
     /// <returns></returns>
     public override void SetOnline(DeviceContext context, Boolean online)
     {
+        var node = context.Device as Node;
+
+        // 优先使用 context.Online（登录时设置的新对象），避免 GetOnline 返回缓存旧对象
         if ((context.Online ?? GetOnline(context)) is NodeOnline olt)
         {
-            olt.WebSocket = online;
+            // 下线时检查是否有活跃会话，避免旧会话断开时覆盖新会话的状态
+            if (!online && node != null)
+            {
+                var session = _sessionManager.Get(node.Code);
+                if (session != null && session.Active)
+                    return;
+            }
+
+            olt.LongLink = online;
             olt.Update();
         }
     }
@@ -721,30 +670,8 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         if (context.Device is not Node node) return null;
 
         var online = base.CreateOnline(context) as NodeOnline;
-        //var online = NodeOnline.GetOrAdd(GetSessionId(context));
-        //online.ProjectId = node.ProjectId;
-        //online.NodeID = node.ID;
-        //online.Name = node.Name;
-        //online.ProductCode = node.ProductCode;
-        //online.IP = node.IP;
-        //online.Category = node.Category;
-        //online.ProvinceID = node.ProvinceID;
-        //online.CityID = node.CityID;
-        //online.Address = node.Address;
-        //online.Location = node.Location;
-        //online.OSKind = node.OSKind;
-        //online.Version = node.Version;
-        //online.CompileTime = node.CompileTime;
-        //online.Memory = node.Memory;
-        //online.MACs = node.MACs;
         online.Token = context.Token;
-        //online.CreateIP = context.UserHost;
-        //online.UpdateIP = context.UserHost;
-        //online.Creator = Environment.MachineName;
 
-        //context.Online = online;
-
-        //return base.CreateOnline(context);
         return online;
     }
     #endregion
@@ -1137,20 +1064,25 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         if (ex != null) throw ex;
 
         var app = App.FindByName(jwt?.Subject);
-        if (app == null || app.AllowControlNodes.IsNullOrEmpty()) throw new ApiException(ApiCode.Unauthorized, "无权操作！");
+        if (app == null) throw new ApiException(ApiCode.Unauthorized, "无权操作！");
 
-        if (app.AllowControlNodes != "*" && !node.Code.EqualIgnoreCase(app.AllowControlNodes.Split(",")))
-            throw new ApiException(ApiCode.Forbidden, $"[{app}]无权操作节点[{node}]！\n安全设计需要，默认禁止所有应用向任意节点发送控制指令。\n可在注册中心应用系统中修改[{app}]的可控节点，添加[{node.Code}]，或者设置为*所有节点。");
+        if (!app.AllowControlNodes.IsNullOrEmpty())
+        {
+            if (app.AllowControlNodes != "*" && !node.Code.EqualIgnoreCase(app.AllowControlNodes.Split(",")))
+                throw new ApiException(ApiCode.Forbidden, $"[{app}]无权操作节点[{node}]！\n安全设计需要，默认禁止所有应用向任意节点发送控制指令。\n可在注册中心应用系统中修改[{app}]的可控节点，添加[{node.Code}]，或者设置为*所有节点。");
+        }
+        else if (!_setting.AllowControlNodesWhenEmpty)
+            throw new ApiException(ApiCode.Unauthorized, "无权操作！");
 
         return SendCommand(node, model, app + "", cancellationToken);
     }
 
     /// <summary>向节点发送命令。（内部用）</summary>
-    /// <param name="node"></param>
-    /// <param name="model"></param>
-    /// <param name="createUser"></param>
-    /// <returns></returns>
-    /// <exception cref="Exception"></exception>
+    /// <param name="node">目标节点</param>
+    /// <param name="model">命令参数</param>
+    /// <param name="createUser">创建人</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>命令响应。超时返回 null，reply.Status 反映设备端执行结果</returns>
     public async Task<CommandReplyModel> SendCommand(Node node, CommandInModel model, String createUser = null, CancellationToken cancellationToken = default)
     {
         var cmd = new NodeCommand
@@ -1178,15 +1110,12 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
             // 埋点
             using var span = _tracer?.NewSpan($"mq:NodeCommandReply", reply);
 
-            if (reply.Status == CommandStatus.错误)
-                throw new Exception($"命令错误！{reply.Data}");
-            else if (reply.Status == CommandStatus.取消)
-                throw new Exception($"命令已取消！{reply.Data}");
-
             return reply;
         }
 
-        return null;
+        // fire-and-forget（timeout<=0）时 PublishAsync 立即返回 null，命令已写入 NodeCommand 并推送给节点，
+        // 但这里仍需返回命令 Id 与当前状态，供调用方（如流水线）记录 CommandId 以便按回包事件精确命中
+        return new CommandReplyModel { Id = cmd.Id, Status = cmd.Status };
     }
     #endregion
 
@@ -1203,7 +1132,287 @@ public class NodeService : DefaultDeviceService<Node, NodeOnline>
         // 通过会话管理器内置的响应事件总线广播响应（跨实例广播不阻塞）
         _ = _sessionManager.PublishResponseAsync(model, default);
 
+        // 流水线续跑：按命令回包事件驱动步骤/run 状态更新（不轮询、不等待）
+        var ip = context.UserHost;
+        _ = Task.Run(() => ProcessPipelineReplyAsync(cmd, model, ip));
+
         return 1;
+    }
+
+    /// <summary>按命令回包事件驱动流水线步骤/run 状态机更新，并在编译成功后续发部署。
+    /// 仅处理关联了流水线步骤的命令（普通命令 FindAllByCommandId 返回空，直接跳过）。
+    /// 同一命令回包可能因网络重试/多实例到达多次，用「条件更新（仅当步骤仍 Running 才迁移到终态）」保证续跑幂等、不双发部署。</summary>
+    private async Task ProcessPipelineReplyAsync(NodeCommand cmd, CommandReplyModel model, String ip)
+    {
+        try
+        {
+            // 仅处理关联了流水线步骤的命令（普通命令 FindAllByCommandId 返回空，直接跳过）
+            var step = AppPipelineStep.FindAllByCommandId(cmd.Id).FirstOrDefault();
+            if (step == null) return;
+
+            // 防重入快路径：步骤已非 Running（可能已被处理或重试）直接跳过，避免不必要工作
+            if (step.Status != "Running") return;
+
+            var run = AppPipelineRun.FindById(step.RunId);
+            if (run == null) return;
+
+            // 已取消/失败的 run 不再续跑，避免取消后又下发部署
+            if (run.Status is PipelineStatus.Cancelled or PipelineStatus.Failed) return;
+
+            var isError = model.Status == CommandStatus.错误;
+            var isCancel = model.Status == CommandStatus.取消;
+            // 已完成 等视为成功（仅 错误/取消 为失败）
+            var isSuccess = !isError && !isCancel;
+
+            var finishedTime = DateTime.Now;
+            var targetStatus = isSuccess ? "Success" : (isCancel ? "Cancelled" : "Failed");
+
+            if (step.StepType.EqualIgnoreCase("Build"))
+            {
+                // 原子迁移：仅当 DB 中该步骤仍为 Running 时才置终态；影响行数为 0 表示已被其他线程/实例处理，直接返回，
+                // 杜绝并发回包（网络重试）重复续跑导致双发部署/双写历史/双设版本
+                if (TransitionStepToTerminal(step.Id, targetStatus, finishedTime, isSuccess ? null : model.Data) == 0) return;
+                // 本线程已抢到续跑权，同步内存对象供后续逻辑使用
+                step.Status = targetStatus;
+                step.FinishedTime = finishedTime;
+
+                var pipeline = AppPipeline.FindById(run.PipelineId);
+                var app = pipeline != null ? AppDeploy.FindById(pipeline.DeployId) : null;
+
+                if (isSuccess)
+                {
+                    // 写编译成功历史（粒度日志由 Agent PostEvents 负责）
+                    if (pipeline != null)
+                        AppDeployHistory.Create(pipeline.DeployId, cmd.NodeID, "deploy/compile/Build-Upload", true, $"编译完成，run={run.Id}", ip).Insert();
+
+                    // 取版本 + 使用版本（必须在部署下发前；等价于 Web「使用版本」按钮 app.Version=ver.Version）
+                    var version = pipeline != null ? AppDeployVersion.FindAllByDeployId(pipeline.DeployId, 1).FirstOrDefault() : null;
+                    if (version != null)
+                    {
+                        run.AppVersionId = version.Id;
+                        if (app != null)
+                        {
+                            app.Version = version.Version;
+                            app.Update();
+                        }
+                        if (pipeline != null)
+                            AppDeployHistory.Create(pipeline.DeployId, 0, "pipeline/version", true, $"使用版本 {version.Version}（Id={version.Id}）", ip).Insert();
+                    }
+                    else
+                    {
+                        if (pipeline != null)
+                            AppDeployHistory.Create(pipeline.DeployId, 0, "pipeline/version", false, "未取到可部署版本", ip).Insert();
+                    }
+                    run.BuildFinishedTime = DateTime.Now;
+
+                    if (pipeline == null || !pipeline.AutoDeploy)
+                    {
+                        run.Status = PipelineStatus.Success;
+                        run.Remark = pipeline == null ? "流水线配置不存在" : "自动部署未开启，流水线结束";
+                        run.Update();
+                        if (pipeline != null)
+                            AppDeployHistory.Create(pipeline.DeployId, 0, "pipeline/autoDeploy", true, "自动部署未开启，流水线结束", ip).Insert();
+                    }
+                    else
+                    {
+                        if (version == null)
+                        {
+                            // 编译成功但未产出可部署版本（如未开启上传），无法自动部署
+                            run.Status = PipelineStatus.Failed;
+                            run.Remark = "编译成功但未产出可部署版本（可能未开启上传），无法自动部署";
+                            run.Update();
+                            AppDeployHistory.Create(pipeline.DeployId, 0, "pipeline/autoDeploy", false, run.Remark, ip).Insert();
+                            return;
+                        }
+                        run.Status = PipelineStatus.Deploying;
+                        run.DeployStartedTime = DateTime.Now;
+                        run.Update();
+                        AppDeployHistory.Create(pipeline.DeployId, 0, "pipeline/autoDeploy", true, $"开始自动部署，run={run.Id}，版本={version.Version}", ip).Insert();
+                        await DispatchDeployAsync(run, pipeline, app, ip);
+
+                        // 收尾：本次实际下发的部署命令数为 0（节点为空 / 全部 Skipped / 全部下发失败）时直接完成判定，
+                        // 否则永远卡 Deploying（没有回包事件来触发完成判定）
+                        var deploySteps = AppPipelineStep.FindAll(AppPipelineStep._.RunId == run.Id & AppPipelineStep._.StepType == "Deploy");
+                        if (!deploySteps.Any(e => e.Status == "Running"))
+                        {
+                            run.DeployFinishedTime = DateTime.Now;
+                            if (deploySteps.Any(e => e.Status == "Failed"))
+                            {
+                                run.Status = PipelineStatus.Failed;
+                                run.Remark = "部署命令下发失败";
+                            }
+                            else if (!deploySteps.Any(e => e.Status == "Success") && !deploySteps.Any(e => e.Status == "Skipped"))
+                            {
+                                // 没有任何部署步骤（通常因为未配置部署节点），不能标记为成功
+                                run.Status = PipelineStatus.Failed;
+                                run.Remark = "未找到可部署节点，请检查流水线部署节点配置";
+                            }
+                            else
+                            {
+                                run.Status = PipelineStatus.Success;
+                            }
+                            run.Update();
+                            if (pipeline != null)
+                                AppDeployHistory.Create(pipeline.DeployId, 0, "deploy/install", run.Status == PipelineStatus.Success, run.Status == PipelineStatus.Success ? "部署完成" : run.Remark, ip).Insert();
+                            return;
+                        }
+                    }
+                }
+                else
+                {
+                    run.BuildFinishedTime = DateTime.Now;
+                    run.Status = isCancel ? PipelineStatus.Cancelled : PipelineStatus.Failed;
+                    run.Remark = model.Data;
+                    run.Update();
+                }
+            }
+            else if (step.StepType.EqualIgnoreCase("Deploy"))
+            {
+                // 原子迁移：仅当 DB 中该步骤仍为 Running 时才置终态，影响行数为 0 表示已处理，直接返回
+                if (TransitionStepToTerminal(step.Id, targetStatus, finishedTime, isSuccess ? null : model.Data) == 0) return;
+                step.Status = targetStatus;
+                step.FinishedTime = finishedTime;
+
+                var pipeline = AppPipeline.FindById(run.PipelineId);
+
+                if (isSuccess)
+                {
+                    // 完成判定：基于最新 DB 数据（用 FindAll 绕过实体缓存，确保读到其他部署步骤的最新状态），避免读旧快照卡 Deploying
+                    var deploySteps = AppPipelineStep.FindAll(AppPipelineStep._.RunId == run.Id & AppPipelineStep._.StepType == "Deploy");
+                    if (!deploySteps.Any(e => e.Status == "Running"))
+                    {
+                        run.DeployFinishedTime = DateTime.Now;
+                        run.Status = PipelineStatus.Success;
+                        run.Update();
+                        // 写部署完成历史（与 Build 分支风格一致）
+                        if (pipeline != null)
+                            AppDeployHistory.Create(pipeline.DeployId, step.NodeId, "deploy/install/Deploy", true, "部署成功", ip).Insert();
+                    }
+                }
+                else
+                {
+                    run.Status = isCancel ? PipelineStatus.Cancelled : PipelineStatus.Failed;
+                    run.Remark = model.Data;
+                    run.Update();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            XTrace.WriteException(ex);
+        }
+    }
+
+    /// <summary>原子地把步骤从 Running 迁移到指定终态，保证同一命令回包（含网络重试 / 多实例）只被处理一次。
+    /// 仅当数据库当前状态仍为 Running 时才更新，返回受影响行数（0 表示已被其他线程 / 实例处理）。</summary>
+    /// <param name="stepId">步骤 Id</param>
+    /// <param name="targetStatus">目标终态（Success/Failed/Cancelled）</param>
+    /// <param name="finishedTime">结束时间</param>
+    /// <param name="message">失败/取消时的错误信息；成功传 null（不写入）</param>
+    private static Int32 TransitionStepToTerminal(Int64 stepId, String targetStatus, DateTime finishedTime, String message)
+    {
+        // 参数化条件更新：仅当 Id 匹配且当前 Status='Running' 时才更新；
+        // 数据库层原子保证并发（含多实例）下只有一个线程能抢到续跑权，影响行数为 0 即已被处理
+        return AppPipelineStep.Update(
+            new[] { nameof(AppPipelineStep.Status), nameof(AppPipelineStep.FinishedTime), nameof(AppPipelineStep.Message) },
+            new Object[] { targetStatus, finishedTime, message ?? "" },
+            new[] { nameof(AppPipelineStep.Id), nameof(AppPipelineStep.Status) },
+            new Object[] { stepId, "Running" }
+        );
+    }
+
+    /// <summary>为每个部署节点建立「部署」步骤并下发 deploy/install 命令，记录各自 CommandId。
+    /// 仅在 StarServer 进程内调用（CommandReply 只在此进程触发），直接操作 NodeCommand 与 PipelineStep。
+    /// 克制原则：一条流水线对应一个分支，仅部署流水线「显式勾选」的部署节点；未勾选任何节点时不做任何部署，避免误部署。</summary>
+    private async Task DispatchDeployAsync(AppPipelineRun run, AppPipeline pipeline, AppDeploy app, String ip)
+    {
+        var nodeIds = (pipeline.DeployNodeIds ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        // 未勾选任何部署节点：不回退、不乱部署，仅记录明确日志并结束（上层据此标记 Failed，避免假成功）
+        if (nodeIds.Length == 0)
+        {
+            AppDeployHistory.Create(pipeline.DeployId, 0, "pipeline/autoDeploy", false, "自动部署未触发：流水线未勾选任何部署节点", ip).Insert();
+            return;
+        }
+
+        // 部署步骤序号在 Build 步骤（索引 0）基础上递增，保证步骤顺序正确
+        var idx = 1;
+        foreach (var nid in nodeIds)
+        {
+            var dn = AppDeployNode.FindById(nid.ToInt());
+
+            var deployStep = new AppPipelineStep
+            {
+                RunId = run.Id,
+                StepType = "Deploy",
+                StepIndex = idx++,
+                NodeId = dn?.NodeId ?? 0,
+                Status = "Running",
+                StartedTime = DateTime.Now,
+                CreateTime = DateTime.Now,
+            };
+
+            if (dn == null)
+            {
+                deployStep.Status = "Skipped";
+                deployStep.Message = $"部署节点[{nid}]不存在";
+                AppDeployHistory.Create(pipeline.DeployId, 0, "pipeline/autoDeploy", false, deployStep.Message, ip).Insert();
+            }
+            else if (!dn.Enable)
+            {
+                deployStep.Status = "Skipped";
+                deployStep.Message = $"部署节点[{dn.NodeName}]未启用";
+                AppDeployHistory.Create(pipeline.DeployId, dn.NodeId, "pipeline/autoDeploy", false, deployStep.Message, ip).Insert();
+            }
+            else if (dn.DeployId != pipeline.DeployId)
+            {
+                deployStep.Status = "Skipped";
+                deployStep.Message = $"部署节点[{dn.NodeName}]DeployId 不匹配";
+                AppDeployHistory.Create(pipeline.DeployId, dn.NodeId, "pipeline/autoDeploy", false, deployStep.Message, ip).Insert();
+            }
+            else
+            {
+                var node = Node.FindByID(dn.NodeId);
+                if (node == null)
+                {
+                    deployStep.Status = "Skipped";
+                    deployStep.Message = $"节点[{dn.NodeId}]不存在";
+                    AppDeployHistory.Create(pipeline.DeployId, dn.NodeId, "pipeline/autoDeploy", false, deployStep.Message, ip).Insert();
+                }
+                else
+                {
+                    try
+                    {
+                        // 使用版本后再下发：app.Version 已在上一步设为刚编译的新版本，Agent 拉部署任务时按 app.Version 取新包
+                        // 注意：不强制启用被禁节点，仅对已启用节点创建 Deploy 步骤（被禁/不存在节点在上方已置 Skipped）
+
+                        var deployName = dn.DeployName;
+                        if (deployName.IsNullOrEmpty()) deployName = app?.Name;
+                        var args = new { dn.Id, DeployName = deployName, app?.AppName }.ToJson();
+
+                        var cmdModel = new CommandInModel
+                        {
+                            Command = "deploy/install",
+                            Argument = args,
+                            Timeout = 0, // fire-and-forget，不等待回包
+                        };
+                        var reply = await SendCommand(node, cmdModel, "Pipeline");
+                        deployStep.CommandId = (Int32)(reply?.Id ?? 0);
+                        AppDeployHistory.Create(pipeline.DeployId, dn.NodeId, "deploy/install", true, $"已向节点 {dn.NodeName} 下发部署命令（CommandId={deployStep.CommandId}）", ip).Insert();
+                    }
+                    catch (Exception ex)
+                    {
+                        deployStep.Status = "Failed";
+                        deployStep.FinishedTime = DateTime.Now;
+                        deployStep.Message = ex.Message;
+                        AppDeployHistory.Create(pipeline.DeployId, dn.NodeId, "deploy/install", false, $"向节点 {dn.NodeName} 下发部署命令失败：{ex.Message}", ip).Insert();
+                    }
+                }
+            }
+
+            if (deployStep.Status != "Running") deployStep.FinishedTime = DateTime.Now;
+            deployStep.Insert();
+        }
     }
 
     public override Int32 PostEvents(DeviceContext context, EventModel[] events)

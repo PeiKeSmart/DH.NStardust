@@ -16,6 +16,7 @@ using Service = Stardust.Data.Service;
 
 namespace Stardust.Server.Services;
 
+/// <summary>注册服务。处理应用注册、登录认证、服务注册与发现的核心服务</summary>
 public class RegistryService : DefaultDeviceService<Node, NodeOnline>
 {
     private readonly AppOnlineService _appOnline;
@@ -25,6 +26,14 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
     private readonly StarServerSetting _setting;
     private readonly ITracer _tracer;
 
+    /// <summary>实例化注册服务</summary>
+    /// <param name="appOnline">应用在线服务</param>
+    /// <param name="passwordProvider">密码提供者</param>
+    /// <param name="sessionManager">会话管理器</param>
+    /// <param name="cacheProvider">缓存提供者</param>
+    /// <param name="setting">服务端设置</param>
+    /// <param name="tracer">跟踪器</param>
+    /// <param name="serviceProvider">服务提供者</param>
     public RegistryService(AppOnlineService appOnline, IPasswordProvider passwordProvider, AppSessionManager sessionManager, ICacheProvider cacheProvider, StarServerSetting setting, ITracer tracer, IServiceProvider serviceProvider) : base(sessionManager, passwordProvider, cacheProvider, serviceProvider)
     {
         _appOnline = appOnline;
@@ -531,18 +540,18 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
     ///// <returns></returns>
     //public override IOnlineModel GetOnline(DeviceContext context) => base.GetOnline(context) as AppOnline;
 
-    /// <summary>设置设备的长连接上线/下线</summary>
-    /// <param name="context">上下文</param>
-    /// <param name="online"></param>
-    /// <returns></returns>
-    public override void SetOnline(DeviceContext context, Boolean online)
-    {
-        if ((GetOnline(context) ?? context.Online) is AppOnline olt)
-        {
-            olt.WebSocket = online;
-            olt.Update();
-        }
-    }
+    ///// <summary>设置设备的长连接上线/下线</summary>
+    ///// <param name="context">上下文</param>
+    ///// <param name="online"></param>
+    ///// <returns></returns>
+    //public override void SetOnline(DeviceContext context, Boolean online)
+    //{
+    //    if ((GetOnline(context) ?? context.Online) is AppOnline olt)
+    //    {
+    //        olt.LongLink = online;
+    //        olt.Update();
+    //    }
+    //}
     #endregion
 
     #region 下行通知
@@ -586,21 +595,7 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
         await Task.WhenAll(ts);
 
         // SessionManager.PublishAsync 内置timeout等待，取首个非空响应
-        var reply = ts.FirstOrDefault(t => t.Result != null)?.Result;
-        if (reply != null)
-        {
-            // 埋点
-            using var span = _tracer?.NewSpan($"mq:AppCommandReply", reply);
-
-            if (reply.Status == CommandStatus.错误)
-                throw new Exception($"命令错误！{reply.Data}");
-            else if (reply.Status == CommandStatus.取消)
-                throw new Exception($"命令已取消！{reply.Data}");
-
-            return reply;
-        }
-
-        return null;
+        return await ts.FirstOrDefault(t => t.Result != null);
     }
 
     public override Task<CommandReplyModel?> SendCommand(DeviceContext context, CommandInModel model, CancellationToken cancellationToken = default)

@@ -8,11 +8,16 @@ namespace Stardust.Server.Controllers;
 
 [ApiController]
 [Route("[controller]")]
+/// <summary>控制器名</summary>
 public class LogController(StarServerSetting setting) : ControllerBase
 {
+    /// <summary>健康检查</summary>
+    /// <returns>控制器标识</returns>
     [HttpGet]
     public Object Get() => "LogController";
 
+    /// <summary>接收应用上报日志。解析标准日志行格式并写入应用客户端日志</summary>
+    /// <returns>空结果</returns>
     [HttpPost]
     public async Task<EmptyResult> Post()
     {

@@ -231,25 +231,6 @@ public partial class AppDeploy : Entity<AppDeploy>
 
     public static AppDeploy GetOrAdd(String name) => GetOrAdd(name, k => Find(_.Name == k), k => new AppDeploy { Name = k });
 
-    /// <summary>获取当前可用资源</summary>
-    /// <returns></returns>
-    public IList<AppDeploy> GetResources()
-    {
-        var rs = new List<AppDeploy>();
-        var ss = Dependencies?.Split(";") ?? [];
-        foreach (var item in ss)
-        {
-            var ad = FindByName(item);
-            if (ad != null && ad.Enable) rs.Add(ad);
-        }
-        var list = FindAllByProjectId(0);
-        foreach (var item in list)
-        {
-            if (item.Enable && !rs.Any(e => e.Id == item.Id))
-                rs.Add(item);
-        }
 
-        return rs;
-    }
     #endregion
 }

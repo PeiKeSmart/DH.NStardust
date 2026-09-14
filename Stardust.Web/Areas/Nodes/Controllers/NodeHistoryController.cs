@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Filters;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
@@ -9,6 +9,7 @@ using XCode;
 
 namespace Stardust.Web.Areas.Nodes.Controllers;
 
+/// <summary>节点历史。记录节点登录/登出/升级等关键操作事件，支持按节点和操作类型检索</summary>
 [Menu(60, false)]
 [NodesArea]
 public class NodeHistoryController : NodesEntityController<NodeHistory>
@@ -32,6 +33,9 @@ public class NodeHistoryController : NodesEntityController<NodeHistory>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<NodeHistory> Search(Pager p)
     {
         var rids = p["areaId"].SplitAsInt("/");

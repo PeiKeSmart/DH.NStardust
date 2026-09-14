@@ -1,4 +1,4 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Charts;
 using NewLife.Cube.ViewModels;
@@ -10,6 +10,7 @@ using static Stardust.Data.Nodes.NodeStat;
 
 namespace Stardust.Web.Areas.Nodes.Controllers;
 
+/// <summary>节点统计。按时间维度统计节点数量、在线率等指标，支持图表和趋势展示</summary>
 [Menu(60)]
 [NodesArea]
 public class NodeStatController : ReadOnlyEntityController<NodeStat>
@@ -85,6 +86,9 @@ public class NodeStatController : ReadOnlyEntityController<NodeStat>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<NodeStat> Search(Pager p)
     {
         var category = p["category"];

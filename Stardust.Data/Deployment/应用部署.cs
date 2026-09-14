@@ -136,6 +136,33 @@ public partial class AppDeploy
     [BindColumn("Repository", "代码库。下载代码的位置", "", ItemType = "url")]
     public String Repository { get => _Repository; set { if (OnPropertyChanging("Repository", value)) { _Repository = value; OnPropertyChanged("Repository"); } } }
 
+    private String _DeployKey;
+    /// <summary>仓库密钥。SSH 私钥，用于非交互式拉取私有仓库代码</summary>
+    [Category("编译参数")]
+    [DisplayName("仓库密钥")]
+    [Description("仓库密钥。SSH 私钥，用于非交互式拉取私有仓库代码")]
+    [DataObjectField(false, false, true, -1)]
+    [BindColumn("DeployKey", "仓库密钥。SSH 私钥，用于非交互式拉取私有仓库代码", "")]
+    public String DeployKey { get => _DeployKey; set { if (OnPropertyChanging("DeployKey", value)) { _DeployKey = value; OnPropertyChanged("DeployKey"); } } }
+
+    private String _RepoUserName;
+    /// <summary>仓库用户名。HTTPS 克隆时的用户名，与运行时执行用户的 UserName 字段区分</summary>
+    [Category("编译参数")]
+    [DisplayName("仓库用户名")]
+    [Description("仓库用户名。HTTPS 克隆时的用户名，与运行时执行用户的 UserName 字段区分")]
+    [DataObjectField(false, false, true, 50)]
+    [BindColumn("RepoUserName", "仓库用户名。HTTPS 克隆时的用户名，与运行时执行用户的 UserName 字段区分", "")]
+    public String RepoUserName { get => _RepoUserName; set { if (OnPropertyChanging("RepoUserName", value)) { _RepoUserName = value; OnPropertyChanged("RepoUserName"); } } }
+
+    private String _RepoPassword;
+    /// <summary>仓库密码。HTTPS 克隆时的密码，AES 加密存储（密钥派生自 TokenSecret），回显为 5 个 *</summary>
+    [Category("编译参数")]
+    [DisplayName("仓库密码")]
+    [Description("仓库密码。HTTPS 克隆时的密码，AES 加密存储（密钥派生自 TokenSecret），回显为 5 个 *")]
+    [DataObjectField(false, false, true, 200)]
+    [BindColumn("RepoPassword", "仓库密码。HTTPS 克隆时的密码，AES 加密存储（密钥派生自 TokenSecret），回显为 5 个 *", "")]
+    public String RepoPassword { get => _RepoPassword; set { if (OnPropertyChanging("RepoPassword", value)) { _RepoPassword = value; OnPropertyChanged("RepoPassword"); } } }
+
     private String _Branch;
     /// <summary>分支。默认main</summary>
     [Category("编译参数")]
@@ -280,15 +307,6 @@ public partial class AppDeploy
     [BindColumn("ReloadOnChange", "检测变动。当文件发生改变时，自动重启应用", "")]
     public Boolean ReloadOnChange { get => _ReloadOnChange; set { if (OnPropertyChanging("ReloadOnChange", value)) { _ReloadOnChange = value; OnPropertyChanged("ReloadOnChange"); } } }
 
-    private String _Dependencies;
-    /// <summary>依赖项。依赖的驱动/插件部署集名称，如dm8-driver;redis-plugin，分号分隔。可来自全局项目或本项目</summary>
-    [Category("发布参数")]
-    [DisplayName("依赖项")]
-    [Description("依赖项。依赖的驱动/插件部署集名称，如dm8-driver;redis-plugin，分号分隔。可来自全局项目或本项目")]
-    [DataObjectField(false, false, true, 500)]
-    [BindColumn("Dependencies", "依赖项。依赖的驱动/插件部署集名称，如dm8-driver;redis-plugin，分号分隔。可来自全局项目或本项目", "")]
-    public String Dependencies { get => _Dependencies; set { if (OnPropertyChanging("Dependencies", value)) { _Dependencies = value; OnPropertyChanged("Dependencies"); } } }
-
     private String _HealthCheck;
     /// <summary>健康检查。探针检测服务是否正常，http/tcp/udp地址，如http://localhost:6600/health</summary>
     [Category("发布参数")]
@@ -384,6 +402,9 @@ public partial class AppDeploy
             "Port" => _Port,
             "Urls" => _Urls,
             "Repository" => _Repository,
+            "DeployKey" => _DeployKey,
+            "RepoUserName" => _RepoUserName,
+            "RepoPassword" => _RepoPassword,
             "Branch" => _Branch,
             "ProjectPath" => _ProjectPath,
             "ProjectKind" => _ProjectKind,
@@ -400,7 +421,6 @@ public partial class AppDeploy
             "AllowMultiple" => _AllowMultiple,
             "AutoStop" => _AutoStop,
             "ReloadOnChange" => _ReloadOnChange,
-            "Dependencies" => _Dependencies,
             "HealthCheck" => _HealthCheck,
             "CreateUserId" => _CreateUserId,
             "CreateTime" => _CreateTime,
@@ -429,6 +449,9 @@ public partial class AppDeploy
                 case "Port": _Port = value.ToInt(); break;
                 case "Urls": _Urls = Convert.ToString(value); break;
                 case "Repository": _Repository = Convert.ToString(value); break;
+                case "DeployKey": _DeployKey = Convert.ToString(value); break;
+                case "RepoUserName": _RepoUserName = Convert.ToString(value); break;
+                case "RepoPassword": _RepoPassword = Convert.ToString(value); break;
                 case "Branch": _Branch = Convert.ToString(value); break;
                 case "ProjectPath": _ProjectPath = Convert.ToString(value); break;
                 case "ProjectKind": _ProjectKind = (Stardust.Models.ProjectKinds)value.ToInt(); break;
@@ -445,7 +468,6 @@ public partial class AppDeploy
                 case "AllowMultiple": _AllowMultiple = value.ToBoolean(); break;
                 case "AutoStop": _AutoStop = value.ToBoolean(); break;
                 case "ReloadOnChange": _ReloadOnChange = value.ToBoolean(); break;
-                case "Dependencies": _Dependencies = Convert.ToString(value); break;
                 case "HealthCheck": _HealthCheck = Convert.ToString(value); break;
                 case "CreateUserId": _CreateUserId = value.ToInt(); break;
                 case "CreateTime": _CreateTime = value.ToDateTime(); break;
@@ -558,6 +580,15 @@ public partial class AppDeploy
         /// <summary>代码库。下载代码的位置</summary>
         public static readonly Field Repository = FindByName("Repository");
 
+        /// <summary>仓库密钥。SSH 私钥，用于非交互式拉取私有仓库代码</summary>
+        public static readonly Field DeployKey = FindByName("DeployKey");
+
+        /// <summary>仓库用户名。HTTPS 克隆时的用户名，与运行时执行用户的 UserName 字段区分</summary>
+        public static readonly Field RepoUserName = FindByName("RepoUserName");
+
+        /// <summary>仓库密码。HTTPS 克隆时的密码，AES 加密存储（密钥派生自 TokenSecret），回显为 5 个 *</summary>
+        public static readonly Field RepoPassword = FindByName("RepoPassword");
+
         /// <summary>分支。默认main</summary>
         public static readonly Field Branch = FindByName("Branch");
 
@@ -605,9 +636,6 @@ public partial class AppDeploy
 
         /// <summary>检测变动。当文件发生改变时，自动重启应用</summary>
         public static readonly Field ReloadOnChange = FindByName("ReloadOnChange");
-
-        /// <summary>依赖项。依赖的驱动/插件部署集名称，如dm8-driver;redis-plugin，分号分隔。可来自全局项目或本项目</summary>
-        public static readonly Field Dependencies = FindByName("Dependencies");
 
         /// <summary>健康检查。探针检测服务是否正常，http/tcp/udp地址，如http://localhost:6600/health</summary>
         public static readonly Field HealthCheck = FindByName("HealthCheck");
@@ -681,6 +709,15 @@ public partial class AppDeploy
         /// <summary>代码库。下载代码的位置</summary>
         public const String Repository = "Repository";
 
+        /// <summary>仓库密钥。SSH 私钥，用于非交互式拉取私有仓库代码</summary>
+        public const String DeployKey = "DeployKey";
+
+        /// <summary>仓库用户名。HTTPS 克隆时的用户名，与运行时执行用户的 UserName 字段区分</summary>
+        public const String RepoUserName = "RepoUserName";
+
+        /// <summary>仓库密码。HTTPS 克隆时的密码，AES 加密存储（密钥派生自 TokenSecret），回显为 5 个 *</summary>
+        public const String RepoPassword = "RepoPassword";
+
         /// <summary>分支。默认main</summary>
         public const String Branch = "Branch";
 
@@ -728,9 +765,6 @@ public partial class AppDeploy
 
         /// <summary>检测变动。当文件发生改变时，自动重启应用</summary>
         public const String ReloadOnChange = "ReloadOnChange";
-
-        /// <summary>依赖项。依赖的驱动/插件部署集名称，如dm8-driver;redis-plugin，分号分隔。可来自全局项目或本项目</summary>
-        public const String Dependencies = "Dependencies";
 
         /// <summary>健康检查。探针检测服务是否正常，http/tcp/udp地址，如http://localhost:6600/health</summary>
         public const String HealthCheck = "HealthCheck";

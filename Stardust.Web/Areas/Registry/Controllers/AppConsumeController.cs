@@ -1,4 +1,4 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.ViewModels;
 using NewLife.Web;
@@ -7,6 +7,7 @@ using XCode.Membership;
 
 namespace Stardust.Web.Areas.Registry.Controllers;
 
+/// <summary>应用消费。记录服务消费者与服务提供者的调用关系，展示服务消费拓扑</summary>
 [RegistryArea]
 [Menu(0, false)]
 public class AppConsumeController : RegistryEntityController<AppConsume>
@@ -34,6 +35,9 @@ public class AppConsumeController : RegistryEntityController<AppConsume>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppConsume> Search(Pager p)
     {
         //PageSetting.EnableAdd = false;
