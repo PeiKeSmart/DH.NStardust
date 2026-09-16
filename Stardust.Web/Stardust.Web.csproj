@@ -60,7 +60,7 @@
     <PackageReference Include="DH.NIP" Version="4.25.2026.906-beta0756" />
     <PackageReference Include="DH.NRedis" Version="4.24.2026.714-beta1255" />
     <PackageReference Include="DH.NRemoting.Extensions" Version="4.25.2026.906-beta0855" />
-    <PackageReference Include="DH.NCube.Core" Version="4.22.2026.516-beta1022" />
+    <PackageReference Include="DH.NCube.Core" Version="4.25.2026.916-beta0246" />
   </ItemGroup>
 
   <ItemGroup>
