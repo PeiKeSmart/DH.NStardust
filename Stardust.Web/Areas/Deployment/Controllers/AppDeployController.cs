@@ -1,15 +1,21 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.ViewModels;
+using NewLife.Security;
 using NewLife.Web;
 using Stardust.Data;
 using Stardust.Data.Deployment;
+using Stardust.Server;
+using XCode;
 using XCode.Membership;
 
 namespace Stardust.Web.Areas.Deployment.Controllers;
 
+/// <summary>应用部署集。定义应用部署的元信息（部署模式/目标路径/启动参数/环境变量），一个应用可有多个部署集</summary>
 [DeploymentArea]
 [Menu(90)]
 public class AppDeployController : DeploymentEntityController<AppDeploy>
@@ -18,6 +24,7 @@ public class AppDeployController : DeploymentEntityController<AppDeploy>
     {
         ListFields.RemoveCreateField();
         ListFields.RemoveField("AppId", "MultiVersion", "Repository", "Branch", "ProjectPath", "PackageFilters", "WorkingDirectory", "UserName", "Environments", "MaxMemory", "Mode", "Remark");
+        ListFields.RemoveField("RepoPassword");
         AddFormFields.RemoveCreateField();
 
         LogOnChange = true;
@@ -54,12 +61,6 @@ public class AppDeployController : DeploymentEntityController<AppDeploy>
             df.Url = "/Deployment/AppDeployVersion?deployId={Id}";
         }
         {
-            var df = ListFields.AddListField("Membership", null, "Version");
-            df.DisplayName = "应用资源";
-            df.Title = "管理所有绑定到当前资源的部署集";
-            df.Url = "/Deployment/AppDeployResource?deployId={Id}";
-        }
-        {
             var df = ListFields.AddListField("AddVersion", "FileName");
             df.Header = "版本管理";
             df.DisplayName = "版本管理";
@@ -79,6 +80,9 @@ public class AppDeployController : DeploymentEntityController<AppDeploy>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppDeploy> Search(Pager p)
     {
         var id = p["deployId"].ToInt(-1);
@@ -124,20 +128,51 @@ public class AppDeployController : DeploymentEntityController<AppDeploy>
     {
         if (!post)
         {
+            // GET 查询后：脱敏处理
             if (type == DataObjectMethodType.Insert)
             {
                 entity.Enable = true;
                 //entity.AutoStart = true;
             }
+            else if (type == DataObjectMethodType.Update && !entity.RepoPassword.IsNullOrEmpty())
+            {
+                // 编辑表单回显时，密码显示为 *****
+                entity.RepoPassword = "*****";
+            }
 
             return base.Valid(entity, type, post);
         }
 
+        // POST 保存前：处理密码加密与脏数据
         if (entity.Id == 0)
         {
             // 从应用表继承ID
             var app = App.FindByName(entity.Name);
             if (app != null) entity.Id = app.Id;
+        }
+
+        // 处理 RepoPassword
+        if ((entity as IEntity).Dirtys[nameof(AppDeploy._.RepoPassword)])
+        {
+            if (entity.RepoPassword == "*****")
+            {
+                // 未修改密码：从数据库读取原密文回填，清除脏标记
+                var old = AppDeploy.FindById(entity.Id);
+                if (old != null)
+                {
+                    entity.RepoPassword = old.RepoPassword;
+                    (entity as IEntity).Dirtys[nameof(AppDeploy._.RepoPassword)] = false;
+                }
+            }
+            else if (!entity.RepoPassword.IsNullOrEmpty())
+            {
+                // 修改了密码：AES 加密存储
+                var key = StarServerSetting.Current.TokenSecret.Split(':')[1];
+                var pass = Encoding.UTF8.GetBytes(key);
+                using var aes = Aes.Create();
+                entity.RepoPassword = aes.Encrypt(Encoding.UTF8.GetBytes(entity.RepoPassword), pass, CipherMode.CBC, PaddingMode.PKCS7).ToHex();
+            }
+            // 空值：保持空值，允许清空
         }
 
         entity.Refresh();

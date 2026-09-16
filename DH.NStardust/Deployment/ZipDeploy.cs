@@ -67,6 +67,9 @@ public class ZipDeploy
     /// <summary>优先级。表示应用程序中任务或操作的优先级级别</summary>
     public ProcessPriority Priority { get; set; }
 
+    /// <summary>OOM 分值。Linux 下 OOM Killer 选择目标的优先级，-1000 禁止被杀，0 普通进程，1000 最先被杀。默认0，作为普通进程可被 OOM 杀死</summary>
+    public Int32? OomScoreAdjust { get; set; }
+
     /// <summary>启动挂钩。拉起目标进程时，对dotNet应用注入星尘监控钩子，默认false</summary>
     public Boolean StartupHook { get; set; }
 
@@ -296,6 +299,12 @@ public class ZipDeploy
         };
         si.EnvironmentVariables["BasePath"] = rundir.FullName;
 
+        // 记录主动注入的环境变量，用于日志输出
+        var envVars = new Dictionary<String, String>
+        {
+            ["BasePath"] = rundir.FullName
+        };
+
         // 向未使用星尘的目标.Net应用注入星尘
         if (StartupHook && (UserName.IsNullOrEmpty() || UserName == Environment.UserName || Runtime.Windows))
         {
@@ -307,11 +316,15 @@ public class ZipDeploy
                 var dll = "Stardust.dll".GetFullPath();
                 WriteLog("执行目录：{0}，注入：{1}", dir, dll);
                 si.EnvironmentVariables["DOTNET_STARTUP_HOOKS"] = dll;
+                envVars["DOTNET_STARTUP_HOOKS"] = dll;
             }
         }
 
         if (!AppId.IsNullOrEmpty())
+        {
             si.EnvironmentVariables["StarAppId"] = AppId;
+            envVars["StarAppId"] = AppId;
+        }
 
         if (runfile.Extension.EqualIgnoreCase(".dll"))
         {
@@ -335,7 +348,10 @@ public class ZipDeploy
             foreach (var item in Environments.SplitAsDictionary("=", ";"))
             {
                 if (!item.Key.IsNullOrEmpty())
+                {
                     si.EnvironmentVariables[item.Key] = item.Value;
+                    envVars[item.Key] = item.Value;
+                }
             }
         }
 
@@ -386,6 +402,8 @@ public class ZipDeploy
         WriteLog("工作目录: {0}", si.WorkingDirectory);
         WriteLog("启动文件: {0}", si.FileName);
         WriteLog("启动参数: {0}", si.Arguments);
+        if (envVars.Count > 0)
+            WriteLog("环境变量: {0}", envVars.Select(e => $"{e.Key}={e.Value}").Join("; "));
         if (!si.UserName.IsNullOrEmpty())
             WriteLog("启动用户：{0}", si.UserName);
 
@@ -420,6 +438,14 @@ public class ZipDeploy
                 ProcessPriority.RealTime => ProcessPriorityClass.RealTime,
                 _ => ProcessPriorityClass.Normal,
             };
+        }
+
+        // OOM分值。Linux下子进程默认继承父进程（StarAgent）的 -1000，需重置为普通进程
+        if (Runtime.Linux && OomScoreAdjust != null && OomScoreAdjust != -1000)
+        {
+            StarClient.SetOomScoreAdj(p.Id, OomScoreAdjust.Value);
+            if (OomScoreAdjust != 0)
+                WriteLog("OOM分值：{0}", OomScoreAdjust);
         }
 
         Process = p;

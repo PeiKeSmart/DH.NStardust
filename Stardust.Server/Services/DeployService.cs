@@ -7,15 +7,22 @@ using Stardust.Models;
 
 namespace Stardust.Server.Services;
 
+/// <summary>部署服务。处理应用版本匹配、节点平台检测、SSL证书匹配等部署核心逻辑</summary>
 public class DeployService
 {
     private readonly RegistryService _registryService;
 
+    /// <summary>实例化部署服务</summary>
+    /// <param name="registryService">注册服务</param>
     public DeployService(RegistryService registryService)
     {
         _registryService = registryService;
     }
 
+    /// <summary>获取应用的最新部署版本。支持多版本匹配（按操作系统/架构/框架运行时筛选）</summary>
+    /// <param name="app">应用部署配置</param>
+    /// <param name="node">目标节点</param>
+    /// <returns>匹配的部署版本，未找到时返回 null</returns>
     public AppDeployVersion GetDeployVersion(AppDeploy app, Node node)
     {
         if (app.MultiVersion)
@@ -36,7 +43,7 @@ public class DeployService
 
                 if (!ver.TargetFramework.IsNullOrEmpty() && fms.Length > 0)
                 {
-                    var tfm = ver.TargetFramework.TrimStart("netcoreapp", "net", "v");
+                    var tfm = ver.TargetFramework.TrimPrefix("netcoreapp").TrimPrefix("net").TrimPrefix("v");
 
                     // 特殊处理4.x，例如net4.6.1可以运行在net4.7/net4.8上
                     if (tfm.StartsWith("4."))
@@ -143,74 +150,7 @@ public class DeployService
             }
         }
 
-        // 构建资源列表
-        inf.Resources = BuildResources(item, node);
-
         return inf;
-    }
-
-    /// <summary>构建资源下载信息列表</summary>
-    /// <param name="item">部署节点</param>
-    /// <param name="node">目标节点</param>
-    /// <returns></returns>
-    private ResourceInfo[] BuildResources(AppDeployNode item, Node node)
-    {
-        // 从 AppDeployNode.Resources 解析资源列表，格式如 dm8-driver:1.0;newlifex-cert:2025.01
-        var resources = item.Resources;
-        if (resources.IsNullOrEmpty()) return null;
-
-        var (nodeOS, nodeArch) = GetNodePlatform(node);
-        var list = new List<ResourceInfo>();
-
-        var pairs = resources.Split(';', StringSplitOptions.RemoveEmptyEntries);
-        foreach (var pair in pairs)
-        {
-            var parts = pair.Split(':');
-            if (parts.Length < 2) continue;
-
-            var name = parts[0];
-            var version = parts[1];
-
-            // 查找资源定义
-            var deploy = AppDeploy.FindByName(name);
-            if (deploy == null || !deploy.Enable) continue;
-
-            // 查找匹配平台的资源版本
-            var resVer = GetResourceVersion(deploy.Id, version, nodeOS, nodeArch);
-            if (resVer == null) continue;
-
-            var inf = new ResourceInfo
-            {
-                Name = name,
-                Version = resVer.Version,
-                Url = resVer.Url,
-                Hash = resVer.Hash,
-                //TargetPath = deploy.TargetPath,
-                //UnZip = deploy.UnZip,
-                //Overwrite = deploy.Overwrite,
-            };
-
-            // 修正Url
-            if (inf.Url.StartsWithIgnoreCase("/cube/file/")) inf.Url = inf.Url.Replace("/cube/file/", "/cube/file?id=");
-
-            list.Add(inf);
-        }
-
-        return list.Count > 0 ? list.ToArray() : null;
-    }
-
-    /// <summary>获取匹配平台的资源版本</summary>
-    private AppDeployVersion GetResourceVersion(Int32 deployId, String version, OSKind nodeOS, CpuArch nodeArch)
-    {
-        // 先按版本精确查找
-        var vers = AppDeployVersion.FindAllByDeployId(deployId, 100).Where(e => e.Enable).ToList();
-
-        // 优先匹配精确平台
-        var ver = vers.FirstOrDefault(e => e.Version == version && MatchPlatform(e.OS, e.Arch, nodeOS, nodeArch));
-        if (ver != null) return ver;
-
-        // 如果没有指定版本的匹配，取最新版本
-        return vers.FirstOrDefault(e => MatchPlatform(e.OS, e.Arch, nodeOS, nodeArch));
     }
 
     /// <summary>更新应用部署的节点信息</summary>

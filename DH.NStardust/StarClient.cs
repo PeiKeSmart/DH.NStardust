@@ -170,7 +170,7 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
         di.Framework = _frameworkManager.GetAllVersions().Join(",", e => e.TrimStart('v'));
 
 #if NETCOREAPP || NETSTANDARD
-        di.Framework ??= RuntimeInformation.FrameworkDescription?.TrimStart(".NET Framework", ".NET Core", ".NET Native", ".NET").Trim();
+        di.Framework ??= RuntimeInformation.FrameworkDescription?.TrimPrefix(".NET Framework").TrimPrefix(".NET Core").TrimPrefix(".NET Native").TrimPrefix(".NET").Trim();
 
         di.Architecture = RuntimeInformation.ProcessArchitecture + "";
 
@@ -185,7 +185,7 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
         var tar = asm?.Asm.GetCustomAttribute<TargetFrameworkAttribute>();
         if (tar != null) ver = !tar.FrameworkDisplayName.IsNullOrEmpty() ? tar.FrameworkDisplayName : tar.FrameworkName;
 
-        di.Framework ??= ver?.TrimStart(".NET Framework", ".NET Core", ".NET Native", ".NET").Trim();
+        di.Framework ??= ver?.TrimPrefix(".NET Framework").TrimPrefix(".NET Core").TrimPrefix(".NET Native").TrimPrefix(".NET").Trim();
         di.Architecture = IntPtr.Size == 8 ? "X64" : "X86";
 #endif
 
@@ -200,10 +200,17 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
         return di;
     }
 
-    /// <summary>获取驱动器信息</summary>
+    private static DateTime _drivesTime;
+    private static IList<DriveInfo>? _drives;
+
+    /// <summary>获取驱动器信息。带短缓存，避免每次心跳枚举磁盘</summary>
     /// <returns></returns>
     public static IList<DriveInfo> GetDrives()
     {
+        // 磁盘信息短缓存，60秒内复用，避免每次心跳枚举磁盘
+        var now = DateTime.Now;
+        if (_drives != null && (now - _drivesTime).TotalSeconds < 60) return _drives;
+
         var list = new List<DriveInfo>();
         foreach (var di in DriveInfo.GetDrives())
         {
@@ -215,6 +222,9 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
 
             if (!list.Any(e => e.Name == di.Name)) list.Add(di);
         }
+
+        _drives = list;
+        _drivesTime = now;
 
         return list;
     }
@@ -258,6 +268,12 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
     #region 心跳
     private readonly String[] _excludes = ["Idle", "System", "Registry", "smss", "csrss", "lsass", "wininit", "services", "winlogon", "LogonUI", "SearchUI", "fontdrvhost", "dwm", "svchost", "dllhost", "conhost", "taskhostw", "explorer", "ctfmon", "ChsIME", "WmiPrvSE", "WUDFHost", "TabTip*", "igfxCUIServiceN", "igfxEMN", "smartscreen", "sihost", "RuntimeBroker", "StartMenuExperienceHost", "SecurityHealthSystray", "SecurityHealthService", "ShellExperienceHost", "PerfWatson2", "audiodg", "spoolsv", "*ServiceHub*", "systemd*", "cron", "rsyslogd", "sudo", "dbus*", "bash", "login", "networkd*", "kworker*", "ksoftirqd*", "migration*", "auditd", "polkitd", "atd"];
 
+    private volatile PingResult? _lastGwResult;
+    private volatile PingResult? _lastDnsResult;
+    private volatile PingResult? _lastSvrResult;
+    private DateTime _lastMeasureTime;
+    private volatile Boolean _measuring;
+
     /// <summary>构建心跳请求</summary>
     /// <returns></returns>
     public override IPingRequest BuildPingRequest()
@@ -265,21 +281,13 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
         var request = new PingInfo();
         FillPingRequest(request);
 
-        // 获取网络质量（使用详细结果）
-        var monitor = new PingMonitor();
-        var gw = AgentInfo.GetGateway();
-        if (gw != null && gw.Contains('/')) gw = gw.Substring(0, gw.IndexOf("/"));
-        var gwtTask = Task.Run(() => monitor.GetResultAsync(gw));
-        var dns = AgentInfo.GetDns();
-        if (dns.IsNullOrEmpty() || IPAddress.TryParse(dns, out var ip) && ip.IsLocal()) dns = "223.5.5.5";
-        var dnsTask = Task.Run(() => monitor.GetResultAsync(dns));
-        var svr = (Client as ApiHttpClient)?.Current?.Address.Host;
-        var svrTask = Task.Run(() => monitor.GetResultAsync(svr));
+        // 获取网络质量（使用后台缓存，避免阻塞心跳）
+        EnsurePingResults();
 
         var exs = _excludes.Where(e => e.Contains('*')).ToArray();
 
         var ps = Process.GetProcesses();
-        var pcs = new List<String>();
+        var pcs = new HashSet<String>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in ps)
         {
             // 有些进程可能已退出，无法获取详细信息
@@ -290,9 +298,14 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
                 var name = item.GetProcessName();
                 if (name.EqualIgnoreCase(_excludes) || exs.Any(e => e.IsMatch(name))) continue;
 
-                if (!pcs.Contains(name)) pcs.Add(name);
+                pcs.Add(name);
             }
             catch { }
+            finally
+            {
+                // 释放进程句柄，避免每次心跳泄漏句柄
+                item.Dispose();
+            }
         }
 
         var mi = MachineInfo.GetCurrent();
@@ -323,10 +336,10 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
         }
         catch { }
 
-        // 获取网络质量明细
-        var gwResult = gwtTask?.Result;
-        var dnsResult = dnsTask?.Result;
-        var svrResult = svrTask?.Result;
+        // 使用缓存的网络质量结果
+        var gwResult = _lastGwResult;
+        var dnsResult = _lastDnsResult;
+        var svrResult = _lastSvrResult;
 
         // 网关结果
         if (gwResult != null)
@@ -368,6 +381,50 @@ public partial class StarClient : ClientBase, ICommandClient, IEventProvider
         request.Time = DateTime.UtcNow.ToLong();
 
         return request;
+    }
+
+    private void EnsurePingResults()
+    {
+        var now = DateTime.UtcNow;
+        if (_lastGwResult != null && _lastDnsResult != null && _lastSvrResult != null &&
+            (now - _lastMeasureTime).TotalSeconds < 48)
+            return;
+
+        if (_measuring) return;
+
+        _measuring = true;
+        Task.Run(MeasurePingResultsAsync);
+    }
+
+    private async Task MeasurePingResultsAsync()
+    {
+        try
+        {
+            var monitor = new PingMonitor();
+            var gw = AgentInfo.GetGateway();
+            if (gw != null && gw.Contains('/')) gw = gw.Substring(0, gw.IndexOf("/"));
+            var dns = AgentInfo.GetDns();
+            if (dns.IsNullOrEmpty() || IPAddress.TryParse(dns, out var ip) && ip.IsLocal()) dns = "223.5.5.5";
+            var svr = (Client as ApiHttpClient)?.Current?.Address.Host;
+
+            var gwTask = Task.Run(() => monitor.GetResultAsync(gw));
+            var dnsTask = Task.Run(() => monitor.GetResultAsync(dns));
+            var svrTask = Task.Run(() => monitor.GetResultAsync(svr));
+
+            _lastGwResult = await gwTask.ConfigureAwait(false);
+            _lastDnsResult = await dnsTask.ConfigureAwait(false);
+            _lastSvrResult = await svrTask.ConfigureAwait(false);
+
+            _lastMeasureTime = DateTime.UtcNow;
+        }
+        catch (Exception ex)
+        {
+            XTrace.WriteLine($"后台网络质量测量失败：{ex.Message}");
+        }
+        finally
+        {
+            _measuring = false;
+        }
     }
 
     /// <summary>心跳</summary>

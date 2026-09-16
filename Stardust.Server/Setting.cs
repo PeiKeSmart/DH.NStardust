@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using NewLife;
 using NewLife.Configuration;
 using NewLife.Remoting.Models;
@@ -114,6 +114,10 @@ public class StarServerSetting : Config<StarServerSetting>, ITokenSetting
     [Description("上传目录。存放升级包，需要跟StarWeb配置为同一个目录，默认../Uploads")]
     public String UploadPath { get; set; } = "../Uploads";
 
+    /// <summary>上传包最大大小。仅作用于 Deploy/UploadBuildFile 接口允许的最大请求体字节数，默认100000000（100MB），0表示使用Kestrel默认限制，最大不超过1GB</summary>
+    [Description("上传包最大大小。仅作用于 Deploy/UploadBuildFile 接口允许的最大请求体字节数，默认100000000（100MB），0表示使用Kestrel默认限制，最大不超过1GB")]
+    public Int64 MaxUploadSize { get; set; } = 100000000;
+
     /// <summary>文件缓存目录。存放数据库驱动等缓存文件，为空时不启用，默认../FileCache</summary>
     [Description("文件缓存目录。存放数据库驱动等缓存文件，为空时不启用，默认../FileCache")]
     public String FileCache { get; set; } = "../FileCache";
@@ -138,9 +142,33 @@ public class StarServerSetting : Config<StarServerSetting>, ITokenSetting
     [Description("固定城市。默认自动根据IP计算所在城市，开启后不再自动计算，改为人工设置")]
     public Boolean FixedCity { get; set; }
 
+    /// <summary>调用链允许匿名。允许未登录用户访问/trace调用链页面，监控数据可能含敏感信息，默认false</summary>
+    [Description("调用链允许匿名。允许未登录用户访问/trace调用链页面，监控数据可能含敏感信息，默认false")]
+    public Boolean TraceAnonymous { get; set; } = false;
+
+    /// <summary>dotNet同步周期。从官网抓取.NET运行时安装包信息，0表示禁用，单位秒，默认43200（12小时）</summary>
+    [Description("dotNet同步周期。从官网抓取.NET运行时安装包信息，0表示禁用，单位秒，默认43200（12小时）")]
+    public Int32 DotNetSyncPeriod { get; set; } = 43200;
+
+    /// <summary>dotNet同步地址。抓取.NET运行时版本的官方API地址，支持{major}占位符</summary>
+    [Description("dotNet同步地址。抓取.NET运行时版本的官方API地址，支持{major}占位符")]
+    public String DotNetSyncUrl { get; set; } = "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/{major}.0/releases.json";
+
     ///// <summary>新服务器。节点自动迁移到新的服务器地址</summary>
     //[Description("新服务器。节点自动迁移到新的服务器地址")]
     //public String NewServer { get; set; }
+
+    /// <summary>可控节点为空时放行。AllowControlNodes为空时是否允许操作，默认false（安全模式，需显式配置可控节点）。内部环境可设为true以兼容旧数据</summary>
+    [Description("可控节点为空时放行。AllowControlNodes为空时是否允许操作，默认false（安全模式，需显式配置可控节点）。内部环境可设为true以兼容旧数据")]
+    public Boolean AllowControlNodesWhenEmpty { get; set; }
+
+    /// <summary>启用MCP服务。默认关闭，启用后暴露 POST /mcp 端点供 LLM/智能体调用</summary>
+    [Description("启用MCP服务。默认关闭，启用后暴露 POST /mcp 端点供 LLM/智能体调用")]
+    public Boolean EnableMcp { get; set; } = false;
+
+    /// <summary>MCP动作集。逗号分隔的模块名（node/app/config/deploy/gateway/monitor/system），*表示全部启用</summary>
+    [Description("MCP动作集。逗号分隔的模块名（node/app/config/deploy/gateway/monitor/system），*表示全部启用")]
+    public String McpActionSet { get; set; } = "*";
     #endregion
 
     #region 方法

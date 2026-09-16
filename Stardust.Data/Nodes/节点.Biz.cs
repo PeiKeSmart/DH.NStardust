@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -50,6 +50,17 @@ public partial class Node : Entity<Node>, IDeviceModel2, ILogProvider
 
         this.TrimExtraLong(__.Uuid, __.MachineGuid, __.MACs, __.DiskID, __.SerialNumber, __.OS, __.DriveInfo);
         this.TrimExtraLong(__.Framework, __.Frameworks, __.CLibVersion, __.IP);
+
+        // 清洗域名列表。拆分去空后重合并，遏制 Cube 表单全逗号脏数据持久化
+        var dv = Domains;
+        if (!dv.IsNullOrEmpty())
+        {
+            var list = dv.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(e => e.Trim())
+                .Where(e => e.Length > 0)
+                .ToArray();
+            Domains = list.Length == 0 ? null : String.Join(",", list);
+        }
 
         // 建议先调用基类方法，基类方法会做一些统一处理
         base.Valid(isNew);
@@ -675,7 +686,7 @@ public partial class Node : Entity<Node>, IDeviceModel2, ILogProvider
         }
         if (rs.Count > 1) node.CityID = rs[^1].ID;
 
-        Address = node.UpdateIP.IPToAddress()?.TrimStart("中国–");
+        Address = node.UpdateIP.IPToAddress()?.TrimPrefix("中国–");
     }
 
     /// <summary>
@@ -729,6 +740,20 @@ public partial class Node : Entity<Node>, IDeviceModel2, ILogProvider
         history.SaveAsync();
     }
 
+    /// <summary>更新域名列表。检测变化并记录历史</summary>
+    /// <param name="newDomains">新域名列表，多个逗号分隔</param>
+    /// <param name="ip">操作IP</param>
+    public void UpdateDomains(String newDomains, String ip)
+    {
+        var oldDomains = Domains;
+        if (oldDomains == newDomains) return;
+
+        Domains = newDomains;
+        Save();
+
+        WriteHistory("修改域名", true, $"域名变更：{oldDomains} -> {newDomains}", ip);
+    }
+
     /// <summary>创建在线对象</summary>
     /// <param name="sessionId"></param>
     /// <returns></returns>
@@ -755,6 +780,7 @@ public partial class Node : Entity<Node>, IDeviceModel2, ILogProvider
         //online.CreateIP = context.UserHost;
         //online.UpdateIP = context.UserHost;
         online.Creator = Environment.MachineName;
+        online.LoginTime = DateTime.Now;
 
         return online;
     }

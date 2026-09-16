@@ -465,7 +465,9 @@ public class NodeStatService(ICacheProvider cacheProvider, ITracer tracer) : IHo
         var sts = NodeStat.FindAllByDate(category, date);
 
         // 处理器做二次合并，因为处理器太多，需要截取中间一部分
+#if !DEBUG
         var count = 0;
+#endif
         foreach (var node in list.OrderByDescending(e => e.ID))
         {
 #if !DEBUG
@@ -478,7 +480,7 @@ public class NodeStatService(ICacheProvider cacheProvider, ITracer tracer) : IHo
 
             var name = (node.Processor + "").Trim();
             var p = name.IndexOf('@');
-            if (p > 0) name = name[..p].Trim().TrimEnd("CPU").Trim();
+            if (p > 0) name = name[..p].Trim().TrimSuffix("CPU").Trim();
 
             // 双处理器
             p = name.IndexOf(',');
@@ -505,8 +507,8 @@ public class NodeStatService(ICacheProvider cacheProvider, ITracer tracer) : IHo
             if (p > 0) name = name[..p].Trim();
 
             var name2 = name
-                  .TrimStart("AMD ", /*"Ryzen ",*/ /*"EPYC",*/ "Genuine ", "Intel(R) ", "Xeon(R) ", "Pentium(R) ", "Celeron(R) ", "CPU")
-                  .TrimEnd(" Processor", /*"-Core",*/ " v2", " v3", " v4", " 0", " (Device Tree)")
+                  .TrimPrefix("AMD ").TrimPrefix("Genuine ").TrimPrefix("Intel(R) ").TrimPrefix("Xeon(R) ").TrimPrefix("Pentium(R) ").TrimPrefix("Celeron(R) ").TrimPrefix("CPU")
+                  .TrimSuffix(" Processor").TrimSuffix(" v2").TrimSuffix(" v3").TrimSuffix(" v4").TrimSuffix(" 0").TrimSuffix(" (Device Tree)")
                   .Trim();
             //if (name2.Contains("Ryzen"))
             //    XTrace.WriteLine("{0} -> {1}", name, name2);

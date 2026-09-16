@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -29,6 +29,12 @@ class Program
         XTrace.UseConsole();
 
         XTrace.Log.Level = LogLevel.All; // 设置日志级别为所有
+
+        // DeployKey 相关测试
+        DeployKeyTests.RunAll();
+
+        // DeployCredentials 相关测试
+        DeployCredentialsTests.RunAll();
 
         Test3();
 

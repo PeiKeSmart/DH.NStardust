@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
 using NewLife.Cube.ViewModels;
 using NewLife.Web;
 using Stardust.Data.Deployment;
+using Stardust.Web.Services;
 using XCode.Membership;
 
 namespace Stardust.Web.Areas.Deployment.Controllers;
@@ -30,12 +31,14 @@ public class AppBuildNodeController : DeploymentEntityController<AppBuildNode>
         {
             var df = ListFields.AddListField("BuildUpload", null, "Enable");
             df.DisplayName = "编译上传";
+            df.Description = "拉代码及编译";
             df.Url = "/Deployment/AppBuildNode/Operate?Id={Id}&act=Build-Upload";
             df.DataAction = "action";
         }
         {
             var df = ListFields.AddListField("PackageUpload", null, "Enable");
             df.DisplayName = "打包上传";
+            df.Description = "不拉代码不编译，直接打包输出目录";
             df.Url = "/Deployment/AppBuildNode/Operate?Id={Id}&act=Package-Upload";
             df.DataAction = "action";
         }
@@ -53,9 +56,18 @@ public class AppBuildNodeController : DeploymentEntityController<AppBuildNode>
         }
     }
 
+    private readonly DeployService _deployService;
+    public AppBuildNodeController(DeployService deployService)
+    {
+        _deployService = deployService;
+    }
+
     /// <summary>高级搜索。列表页查询、导出Excel、导出Json、分享页等使用</summary>
     /// <param name="p">分页器。包含分页排序参数，以及Http请求参数</param>
     /// <returns></returns>
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppBuildNode> Search(Pager p)
     {
         var deployId = p["deployId"].ToInt(-1);
@@ -73,19 +85,23 @@ public class AppBuildNodeController : DeploymentEntityController<AppBuildNode>
     }
 
     /// <summary>执行操作</summary>
-    /// <param name="act"></param>
-    /// <param name="id"></param>
+    /// <param name="act">操作。Build-Upload/Package-Upload</param>
+    /// <param name="id">编译节点编号</param>
     /// <returns></returns>
     [EntityAuthorize(PermissionFlags.Update)]
     public async Task<ActionResult> Operate(String act, Int32 id)
     {
-        var dn = AppDeployNode.FindById(id);
-        if (dn == null || dn.Node == null || dn.Deploy == null) return Json(500, $"[{id}]不存在");
+        var bn = AppBuildNode.FindById(id);
+        if (bn == null || bn.Node == null) return Json(500, $"编译节点[{id}]不存在");
 
-        var deployName = dn.DeployName;
-        if (deployName.IsNullOrEmpty()) deployName = dn.Deploy?.Name;
-        //await _deployService.Control(dn.Deploy, dn, act, UserHost, 0, 0);
+        var app = bn.Deploy;
+        if (app == null) return Json(500, $"编译节点[{id}]未关联应用部署集");
 
-        return JsonRefresh($"在节点[{dn.NodeName}]上对应用[{deployName}]执行[{act}]操作", 1);
+        var deployName = bn.DeployName;
+        if (deployName.IsNullOrEmpty()) deployName = app.Name;
+
+        await _deployService.Compile(app, bn, act, UserHost, HttpContext.RequestAborted);
+
+        return JsonRefresh($"在节点[{bn.NodeName}]上对应用[{deployName}]执行[{act}]操作", 1);
     }
 }

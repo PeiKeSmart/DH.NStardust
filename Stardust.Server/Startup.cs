@@ -1,6 +1,7 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
+using Microsoft.AspNetCore.Http.Features;
 using NewLife;
 using NewLife.Caching;
 using NewLife.Caching.Services;
@@ -12,7 +13,9 @@ using Stardust.Data;
 using Stardust.Data.Nodes;
 using Stardust.Extensions.Caches;
 using Stardust.Monitors;
+using Stardust.Dns;
 using Stardust.Registry;
+using Stardust.Services;
 using Stardust.Server.Services;
 using XCode;
 using XCode.DataAccessLayer;
@@ -75,9 +78,15 @@ public class Startup
         if (set.FileStorageProvide || set.FileStorageFetch)
             services.AddCubeFileStorage("Star");
 
+        // DDNS服务 - 必须在 NodeService 之前注册，因为 NodeService 依赖 DnsService
+        services.AddSingleton<IDnsProvider, AliyunDnsProvider>();
+        services.AddSingleton<IDnsProvider, TencentCloudDnsProvider>();
+        services.AddSingleton<IDnsProvider, UCloudDnsProvider>();
+        services.AddSingleton<DnsProviderFactory>();
+        services.AddSingleton<DnsService>();
+
         // 业务服务
         services.AddSingleton<NodeService>();
-        services.AddSingleton<AppQueueService>();
         services.AddSingleton<AppTokenService>();
         services.AddSingleton<ConfigService>();
         services.AddSingleton<RegistryService>();
@@ -86,6 +95,7 @@ public class Startup
         services.AddSingleton<DeployService>();
         services.AddSingleton<MonitorService>();
         services.AddSingleton<AgentDeployService>();
+        services.AddSingleton<GatewayService>();
 
         services.AddSingleton<NodeSessionManager>();
         services.AddSingleton<AppSessionManager>();
@@ -96,16 +106,18 @@ public class Startup
         // 配置Json
         services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(options =>
         {
-#if NET7_0_OR_GREATER
-            // 支持模型类中的DataMember特性
-            options.JsonSerializerOptions.TypeInfoResolver = DataMemberResolver.Default;
-#endif
-            options.JsonSerializerOptions.Converters.Add(new TypeConverter());
-            options.JsonSerializerOptions.Converters.Add(new LocalTimeConverter());
+            SystemJson.Apply(options.JsonSerializerOptions, true);
+
+            //#if NET7_0_OR_GREATER
+            //            // 支持模型类中的DataMember特性
+            //            options.JsonSerializerOptions.TypeInfoResolver = DataMemberResolver.Default;
+            //#endif
+            //            options.JsonSerializerOptions.Converters.Add(new TypeConverter());
+            //            options.JsonSerializerOptions.Converters.Add(new LocalTimeConverter());
             options.JsonSerializerOptions.Converters.Add(new JsonConverter<ISpanBuilder, DefaultSpanBuilder>());
             options.JsonSerializerOptions.Converters.Add(new JsonConverter<ISpan, DefaultSpan>());
-            // 支持中文编码
-            options.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
+            //// 支持中文编码
+            //options.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
         });
 
         services.AddCors(options => options.AddPolicy("star_cors", builder =>
@@ -122,6 +134,7 @@ public class Startup
         services.AddHostedService<ApolloService>();
         services.AddHostedService<ShardTableService>();
         services.AddHostedService<AlarmService>();
+        services.AddHostedService<DotNetSyncService>();
         services.AddHostedService<NodeStatService>();
 
         // 注入Remoting服务
@@ -189,6 +202,26 @@ public class Startup
         {
             app.UseDeveloperExceptionPage();
         }
+
+        // 动态调整请求体大小限制。仅对 /Deploy/UploadBuildFile 路径生效，从 StarServerSetting.MaxUploadSize 读取
+        // Kestrel 默认 MaxRequestBodySize=30MB，会在此接口拒绝大包；此处按配置项放宽（默认100MB，最大1GB），0 表示保持 Kestrel 默认
+        // 注意：UploadBuildFile 接口的 MultipartBodyLengthLimit 设为 1GB，因此 MaxUploadSize 不应超过 1GB
+        app.Use(async (context, next) =>
+        {
+            var path = context.Request.Path.Value;
+            if (!String.IsNullOrEmpty(path)
+                && path.Equals("/Deploy/UploadBuildFile", StringComparison.OrdinalIgnoreCase))
+            {
+                var feature = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
+                if (feature != null && !feature.IsReadOnly)
+                {
+                    var maxSize = StarServerSetting.Current.MaxUploadSize;
+                    if (maxSize > 0) feature.MaxRequestBodySize = Math.Min(maxSize, 1L * 1024 * 1024 * 1024);
+                }
+            }
+
+            await next();
+        });
 
         // 调整自动分表表名。20250103起使用新的分表格式，固定31张表
         ShardTableService.FixShardTable();

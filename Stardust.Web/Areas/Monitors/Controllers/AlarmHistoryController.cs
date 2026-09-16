@@ -1,14 +1,18 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Web;
 using Stardust.Data.Monitors;
 
 namespace Stardust.Web.Areas.Monitors.Controllers;
 
+/// <summary>告警历史。记录告警触发历史和处理情况，按告警组和时间检索</summary>
 [Menu(0, false)]
 [MonitorsArea]
 public class AlarmHistoryController : ReadOnlyEntityController<AlarmHistory>
 {
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AlarmHistory> Search(Pager p)
     {
         var groupId = p["groupId"].ToInt(-1);

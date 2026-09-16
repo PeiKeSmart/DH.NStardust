@@ -205,7 +205,7 @@ public class LocalStarClient
                 // 比目标版本高，不需要安装
                 if (String.Compare(info.Version, version) >= 0) return true;
 
-                if (!info.FileName.IsNullOrEmpty()) info.FileName = info.FileName.TrimEnd(" (deleted)");
+                if (!info.FileName.IsNullOrEmpty()) info.FileName = info.FileName.TrimSuffix(" (deleted)");
                 if (target.IsNullOrEmpty()) target = Path.GetDirectoryName(info.FileName);
 
                 WriteLog("StarAgent在用版本 v{0}，低于目标版本 v{1}", info.Version, version);
@@ -219,19 +219,27 @@ public class LocalStarClient
         if (target.IsNullOrEmpty())
         {
             // 在进程中查找
-            var p = Process.GetProcesses().FirstOrDefault(e => e.ProcessName == "StarAgent");
-            if (p != null)
+            var ps = Process.GetProcesses();
+            try
             {
-                try
+                var p = ps.FirstOrDefault(e => e.ProcessName == "StarAgent");
+                if (p != null)
                 {
-                    if (p.MainModule != null)
-                        target = Path.GetDirectoryName(p.MainModule.FileName);
+                    try
+                    {
+                        if (p.MainModule != null)
+                            target = Path.GetDirectoryName(p.MainModule.FileName);
+                    }
+                    catch { }
+
+                    if (target.IsNullOrEmpty()) target = Path.GetDirectoryName(p.MainWindowTitle);
+
+                    WriteLog("发现进程StarAgent，ProcessId={0}，target={1}", p.Id, target);
                 }
-                catch { }
-
-                if (target.IsNullOrEmpty()) target = Path.GetDirectoryName(p.MainWindowTitle);
-
-                WriteLog("发现进程StarAgent，ProcessId={0}，target={1}", p.Id, target);
+            }
+            finally
+            {
+                foreach (var item in ps) item.Dispose();
             }
         }
 
@@ -270,22 +278,34 @@ public class LocalStarClient
             // 在进程中查找
             var info = Info;
             var inService = info?.Arguments == "-s";
-            var p = info != null && info.ProcessId > 0 ?
-                Process.GetProcessById(info.ProcessId) :
-                Process.GetProcesses().FirstOrDefault(e => e.ProcessName == "StarAgent");
 
-            // 重启目标
-            if (p != null && !inService)
+            var ps = Process.GetProcesses();
+            Process? p = null;
+            try
             {
-                try
+                p = info != null && info.ProcessId > 0 ?
+                    Process.GetProcessById(info.ProcessId) :
+                    ps.FirstOrDefault(e => e.ProcessName == "StarAgent");
+
+                // 重启目标
+                if (p != null && !inService)
                 {
-                    p.Kill();
+                    try
+                    {
+                        p.Kill();
+                    }
+                    catch (Win32Exception) { }
+                    catch (Exception ex)
+                    {
+                        XTrace.WriteException(ex);
+                    }
                 }
-                catch (Win32Exception) { }
-                catch (Exception ex)
-                {
-                    XTrace.WriteException(ex);
-                }
+            }
+            finally
+            {
+                // 释放进程句柄。Process.Dispose 幂等，重复释放安全
+                foreach (var item in ps) item.Dispose();
+                p?.Dispose();
             }
 
             var fileName = info?.FileName;

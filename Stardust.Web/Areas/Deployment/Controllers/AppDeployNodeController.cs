@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using NewLife;
 using NewLife.Cube;
@@ -47,6 +47,9 @@ public class AppDeployNodeController : DeploymentEntityController<AppDeployNode>
         _deployService = deployService;
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppDeployNode> Search(Pager p)
     {
         var id = p["id"].ToInt(-1);
@@ -104,27 +107,25 @@ public class AppDeployNodeController : DeploymentEntityController<AppDeployNode>
     /// <summary>执行操作</summary>
     /// <param name="act">操作。install/start/stop/restart/uninstall</param>
     /// <param name="id">节点编号</param>
-    /// <param name="resources">资源列表。逗号分隔的资源名称，如dm8-driver,newlifex-cert</param>
     /// <returns></returns>
     [EntityAuthorize(PermissionFlags.Update)]
-    public async Task<ActionResult> Operate(String act, Int32 id, String[] resources)
+    public async Task<ActionResult> Operate(String act, Int32 id)
     {
         var dn = AppDeployNode.FindById(id);
         if (dn == null || dn.Node == null || dn.Deploy == null) return Json(500, $"[{id}]不存在");
 
         var deployName = dn.DeployName;
         if (deployName.IsNullOrEmpty()) deployName = dn.Deploy?.Name;
-        await _deployService.Control(dn.Deploy, dn, act, UserHost, 0, 0, resources);
+        await _deployService.Control(dn.Deploy, dn, act, UserHost, 0, 0, cancellationToken: HttpContext.RequestAborted);
 
         return JsonRefresh($"在节点[{dn.NodeName}]上对应用[{deployName}]执行[{act}]操作", 1);
     }
 
     /// <summary>批量执行操作</summary>
     /// <param name="act">操作。install/start/stop/restart/uninstall</param>
-    /// <param name="resources">资源列表。逗号分隔的资源名称，如dm8-driver,newlifex-cert</param>
     /// <returns></returns>
     [EntityAuthorize(PermissionFlags.Update)]
-    public async Task<ActionResult> BatchOperate(String act, String[] resources)
+    public async Task<ActionResult> BatchOperate(String act)
     {
         var ts = new List<Task>();
         var ids = SelectKeys.Select(e => e.ToInt()).Where(e => e > 0).Distinct().ToList();
@@ -133,7 +134,7 @@ public class AppDeployNodeController : DeploymentEntityController<AppDeployNode>
             var dn = AppDeployNode.FindById(id);
             if (dn != null && dn.Node != null && dn.Deploy != null)
             {
-                ts.Add(_deployService.Control(dn.Deploy, dn, act, UserHost, dn.Delay, 0, resources));
+                ts.Add(_deployService.Control(dn.Deploy, dn, act, UserHost, dn.Delay, 0, cancellationToken: HttpContext.RequestAborted));
             }
         }
 

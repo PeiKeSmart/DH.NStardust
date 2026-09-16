@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Log;
@@ -10,6 +10,7 @@ using Attachment = NewLife.Cube.Entity.Attachment;
 
 namespace Stardust.Web.Areas.Nodes.Controllers;
 
+/// <summary>节点版本。追踪各组件在节点上的版本信息，管理组件升级包上传与分发</summary>
 [Menu(40)]
 [NodesArea]
 public class NodeVersionController(IFileStorage fileStorage) : EntityController<NodeVersion>
@@ -41,6 +42,9 @@ public class NodeVersionController(IFileStorage fileStorage) : EntityController<
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<NodeVersion> Search(Pager p)
     {
         var enable = p["enable"]?.ToBoolean();
@@ -111,17 +115,4 @@ public class NodeVersionController(IFileStorage fileStorage) : EntityController<
     //    return rs;
     //}
 
-    public ActionResult GetVersion(String id)
-    {
-        var name = id;
-        var nv = NodeVersion.FindByVersion(name.TrimEnd(".zip"));
-        if (nv == null) return NotFound("非法参数");
-
-        var set = CubeSetting.Current;
-        var updatePath = set.UploadPath;
-        var fi = updatePath.CombinePath(nv.Source).AsFile();
-        if (!fi.Exists) return NotFound("文件不存在");
-
-        return PhysicalFile(fi.FullName, "application/octet-stream", name);
-    }
 }

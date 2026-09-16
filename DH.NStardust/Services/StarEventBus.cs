@@ -36,16 +36,11 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
     public ITracer? Tracer { get; set; }
 
     private volatile Boolean _subscribed;
+    private Int32 _subscribing;
     private TimerX? _timer;
     #endregion
 
     #region 方法
-    /// <summary>订阅消息。先本地再远程</summary>
-    /// <param name="handler">事件处理器</param>
-    /// <param name="clientId">客户端标识</param>
-    /// <returns></returns>
-    public override Boolean Subscribe(IEventHandler<TEvent> handler, String clientId = "") => SubscribeAsync(handler, clientId).GetAwaiter().GetResult();
-
     /// <summary>订阅消息。先本地再远程</summary>
     /// <param name="handler">事件处理器</param>
     /// <param name="clientId">客户端标识</param>
@@ -54,7 +49,7 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
     public override async Task<Boolean> SubscribeAsync(IEventHandler<TEvent> handler, String clientId = "", CancellationToken cancellationToken = default)
     {
         // 先本地再远程
-        if (!base.Subscribe(handler, clientId)) return false;
+        if (!(await base.SubscribeAsync(handler, clientId, cancellationToken).ConfigureAwait(false))) return false;
 
         // 如果客户端没有准备好，则启动定时器延迟订阅，或者等发布消息的时候再订阅
         if (!client.Logined)
@@ -71,7 +66,7 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
         }
         catch
         {
-            base.Unsubscribe(clientId);
+            await base.UnsubscribeAsync(clientId, cancellationToken).ConfigureAwait(false);
 
             throw;
         }
@@ -82,14 +77,24 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
         if (!client.Logined) return false;
         if (_subscribed) return true;
 
-        using var span = Tracer?.NewSpan($"event:{topic}:subscribe", topic);
+        // 防止并发重复订阅：多个线程同时进入时，仅第一个执行网络发送
+        if (Interlocked.CompareExchange(ref _subscribing, 1, 0) != 0) return _subscribed;
 
-        await client.PublishEventAsync(topic, "subscribe").ConfigureAwait(false);
-        _subscribed = true;
+        try
+        {
+            using var span = Tracer?.NewSpan($"event:{topic}:subscribe", topic);
 
-        Log?.Info("事件总线[{0}]远程订阅成功！", topic);
+            await client.PublishEventAsync(topic, "subscribe").ConfigureAwait(false);
+            _subscribed = true;
 
-        return true;
+            Log?.Info("事件总线[{0}]远程订阅成功！", topic);
+
+            return true;
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _subscribing, 0);
+        }
     }
 
     private async Task DoSubscribe(Object state)
@@ -114,11 +119,6 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
 
     /// <summary>取消订阅消息。先远程再本地</summary>
     /// <param name="clientId">客户端标识</param>
-    /// <returns></returns>
-    public override Boolean Unsubscribe(String clientId = "") => UnsubscribeAsync(clientId).GetAwaiter().GetResult();
-
-    /// <summary>取消订阅消息。先远程再本地</summary>
-    /// <param name="clientId">客户端标识</param>
     /// <param name="cancellationToken">取消通知</param>
     /// <returns></returns>
     public override async Task<Boolean> UnsubscribeAsync(String clientId = "", CancellationToken cancellationToken = default)
@@ -131,7 +131,7 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
 
         Log?.Info("事件总线[{0}]远程取消订阅成功！", topic);
 
-        return base.Unsubscribe(clientId);
+        return await base.UnsubscribeAsync(clientId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>发布消息到消息队列。经星尘平台转发给各应用</summary>
@@ -144,10 +144,12 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
         if (@event == null) return 0;
         if (!_subscribed) await RemoteSubscribe().ConfigureAwait(false);
 
-        // 待发布消息增加追踪标识
-        if (@event is ITraceMessage tm && tm.TraceId.IsNullOrEmpty()) tm.TraceId = DefaultSpan.Current?.ToString();
-
         var json = client.JsonHost.Write(@event);
+        using var span = Tracer?.NewSpan($"event:{topic}:publish", json);
+
+        // 待发布消息增加追踪标识
+        if (@event is ITraceMessage tm && tm.TraceId.IsNullOrEmpty()) tm.TraceId = span?.ToString();
+
         await client.PublishEventAsync(topic, json, cancellationToken).ConfigureAwait(false);
 
         return json.Length;
@@ -166,7 +168,7 @@ public class StarEventBus<TEvent>(AppClient client, String topic) : EventBus<TEv
             context ??= new StringEventContext(this, message);
             if (message is not TEvent @event)
             {
-                @event = client.JsonHost.Read<TEvent>(message)!;
+                @event = client.JsonHost.Read<TEvent>(message, null)!;
                 if (span != null && @event is ITraceMessage tm) span.Detach(tm.TraceId);
             }
 

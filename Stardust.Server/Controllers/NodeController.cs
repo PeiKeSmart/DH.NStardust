@@ -62,6 +62,9 @@ public class NodeController(NodeService nodeService, ITokenService tokenService,
     #endregion
 
     #region 登录注销
+    /// <summary>节点注册与登录。兼容旧版本请求体，动态注册后颁发令牌与证书</summary>
+    /// <param name="data">登录信息（JSON）</param>
+    /// <returns>登录响应</returns>
     [AllowAnonymous]
     [HttpPost(nameof(Login))]
     public ILoginResponse Login(JsonElement data)
@@ -164,6 +167,9 @@ public class NodeController(NodeService nodeService, ITokenService tokenService,
     #endregion
 
     #region 心跳保活
+    /// <summary>节点心跳保活。更新在线状态与令牌续期</summary>
+    /// <param name="inf">心跳信息</param>
+    /// <returns>心跳响应</returns>
     [HttpGet(nameof(Ping))]
     [HttpPost(nameof(Ping))]
     public IPingResponse Ping(PingInfo inf)
@@ -211,10 +217,11 @@ public class NodeController(NodeService nodeService, ITokenService tokenService,
 
     #region 升级更新
     /// <summary>升级检查</summary>
-    /// <param name="channel">更新通道</param>
+    /// <param name="channel">更新通道。兼容旧版本客户端，允许为空，默认Release</param>
     /// <returns></returns>
     [HttpGet(nameof(Upgrade))]
-    public IUpgradeInfo Upgrade(String channel)
+    [HttpPost(nameof(Upgrade))]
+    public IUpgradeInfo? Upgrade(String? channel)
     {
         var node = Context.Device as Node;
 
@@ -260,7 +267,7 @@ public class NodeController(NodeService nodeService, ITokenService tokenService,
         {
             using var socket = await HttpContext.WebSockets.AcceptWebSocketAsync();
 
-            await HandleNotify(socket, HttpContext.RequestAborted);
+            await HandleNotify(Context, socket, HttpContext.RequestAborted);
         }
         else
         {
@@ -268,11 +275,15 @@ public class NodeController(NodeService nodeService, ITokenService tokenService,
         }
     }
 
-    private async Task HandleNotify(WebSocket socket, CancellationToken cancellationToken)
+    private async Task HandleNotify(DeviceContext context, WebSocket socket, CancellationToken cancellationToken)
     {
-        var node = Context.Device as Node;
+        var node = context.Device as Node;
+
+        // BaseController.OnAuthorize 中已通过 deviceService.GetOnline 设置 Context.Online，
+        // WebSocket 升级请求也走 OnAuthorize，后续心跳消息可直接复用。
 
         using var span = tracer?.NewSpan("cmd:WsNode:Create", node.Code);
+        span?.Detach(HttpContext.Request.Headers);
         try
         {
             using var session = new NodeCommandSession(socket)
@@ -285,7 +296,10 @@ public class NodeController(NodeService nodeService, ITokenService tokenService,
             };
             sessionManager.Add(session);
 
-            await session.WaitAsync(HttpContext, span, cancellationToken);
+            context["HttpContext"] = HttpContext;
+            context["Span"] = span;
+
+            await session.WaitAsync(context, cancellationToken);
         }
         catch (Exception ex)
         {

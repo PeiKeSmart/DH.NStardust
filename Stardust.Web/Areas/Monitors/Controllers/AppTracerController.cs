@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using NewLife;
 using NewLife.Cube;
@@ -13,6 +13,7 @@ using XCode.Membership;
 
 namespace Stardust.Web.Areas.Monitors.Controllers;
 
+/// <summary>应用跟踪器。管理每个应用实例的采样率、周期、WebHook 等参数配置</summary>
 [Menu(90)]
 [MonitorsArea]
 public class AppTracerController : MonitorsEntityController<AppTracer>
@@ -76,6 +77,9 @@ public class AppTracerController : MonitorsEntityController<AppTracer>
 
     public AppTracerController(ITraceItemStatService traceItemStatService) => _traceItemStatService = traceItemStatService;
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppTracer> Search(Pager p)
     {
         var id = p["monitorId"].ToInt(-1);

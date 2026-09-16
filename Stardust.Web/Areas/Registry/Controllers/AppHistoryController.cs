@@ -1,4 +1,4 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
 using NewLife.Cube.ViewModels;
@@ -8,6 +8,7 @@ using XCode.Membership;
 
 namespace Stardust.Web.Areas.Registry.Controllers;
 
+/// <summary>应用历史。记录应用的关键操作事件（登录/心跳/命令），支持按应用和操作类型检索</summary>
 [RegistryArea]
 [Menu(0, false)]
 public class AppHistoryController : RegistryEntityController<AppHistory>
@@ -50,6 +51,9 @@ public class AppHistoryController : RegistryEntityController<AppHistory>
         return base.SearchData(p);
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppHistory> Search(Pager p)
     {
         //PageSetting.EnableAdd = false;

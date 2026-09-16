@@ -8,10 +8,17 @@
     <LangVersion>latest</LangVersion>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
+    <NoWarn>1701;1702;ASPDEPR008</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="appsettings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="xunit.runner.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -23,11 +30,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.8" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <Content Include="Data\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" Version="10.0.11" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageReference Include="Moq" Version="4.20.72" />
     <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -39,6 +52,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Stardust.Server\Stardust.Server.csproj" />
+    <ProjectReference Include="..\Stardust.Web\Stardust.Web.csproj" Aliases="web" />
   </ItemGroup>
 
 </Project>

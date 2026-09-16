@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Extensions.FileProviders;
@@ -50,6 +51,9 @@ class CacheFileProvider : IFileProvider
 
     /// <summary>服务提供者</summary>
     public IServiceProvider ServiceProvider { get; set; } = null!;
+
+    /// <summary>并发下载信号量。限制过期文件同时下载数量，避免线程爆炸</summary>
+    private readonly SemaphoreSlim _downloadSemaphore = new(4, 4);
     #endregion
 
     /// <summary>
@@ -113,8 +117,15 @@ class CacheFileProvider : IFileProvider
         {
             if (!fi.Exists)
                 fi = DownloadFile(subpath, fullPath).ConfigureAwait(false).GetAwaiter().GetResult()?.AsFile();
-            else if (fi.LastWriteTime.AddMonths(1) < DateTime.Now)
-                _ = Task.Factory.StartNew(() => DownloadFile(subpath, fullPath), TaskCreationOptions.LongRunning);
+            else if (fi.LastWriteTime.AddMonths(1) < DateTime.Now && _downloadSemaphore.Wait(0))
+            {
+                // 后台异步下载。信号量限流（最多4个并发），避免大量过期文件同时下载造成线程爆炸
+                _ = Task.Run(async () =>
+                {
+                    try { await DownloadFile(subpath, fullPath).ConfigureAwait(false); }
+                    finally { _downloadSemaphore.Release(); }
+                });
+            }
         }
         if (fi == null || !fi.Exists) return new NotFoundFileInfo(subpath);
 
@@ -133,7 +144,7 @@ class CacheFileProvider : IFileProvider
                 try
                 {
                     var url = subpath.Replace("\\", "/");
-                    url = item.Contains("{0}") ? item.Replace("{0}", url) : item.TrimEnd("/") + url.EnsureStart("/");
+                    url = item.Contains("{0}") ? item.Replace("{0}", url) : item.TrimSuffix("/") + url.EnsureStart("/");
 
                     span?.AppendTag(url);
                     XTrace.WriteLine("下载文件：{0}", url);
@@ -163,7 +174,7 @@ class CacheFileProvider : IFileProvider
                     if (!target.IsNullOrEmpty() && fullPath.EndsWithIgnoreCase(".sh", ".bat"))
                     {
                         var txt = File.ReadAllText(fullPath);
-                        var txt2 = txt.Replace(item.TrimEnd("/"), target.TrimEnd("/"));
+                        var txt2 = txt.Replace(item.TrimSuffix("/"), target.TrimSuffix("/"));
                         if (txt != txt2) File.WriteAllText(fullPath, txt2);
                     }
 
@@ -226,8 +237,15 @@ class CacheFileProvider : IFileProvider
                 var fi = fullPath.CombinePath(IndexInfoFile).GetBasePath().AsFile();
                 if (!fi.Exists)
                     fi = DownloadDirectory(subpath, fi.FullName, svrs).ConfigureAwait(false).GetAwaiter().GetResult()?.AsFile();
-                else if (fi.LastWriteTime.AddDays(1) < DateTime.Now)
-                    _ = Task.Factory.StartNew(() => DownloadDirectory(subpath, fi.FullName, svrs), TaskCreationOptions.LongRunning);
+                else if (fi.LastWriteTime.AddDays(1) < DateTime.Now && _downloadSemaphore.Wait(0))
+                {
+                    // 后台异步下载，信号量限流
+                    _ = Task.Run(async () =>
+                    {
+                        try { await DownloadDirectory(subpath, fi.FullName, svrs).ConfigureAwait(false); }
+                        finally { _downloadSemaphore.Release(); }
+                    });
+                }
             }
 
             return fullPath == null || !Directory.Exists(fullPath)
@@ -242,14 +260,14 @@ class CacheFileProvider : IFileProvider
 
     async Task<String?> DownloadDirectory(String subpath, String fullPath, String[] svrs)
     {
-        subpath = subpath.TrimEnd('/');
+        subpath = subpath.TrimSuffix("/");
         var span = DefaultSpan.Current;
         foreach (var item in svrs)
         {
             try
             {
                 var url = subpath.Replace("\\", "/");
-                url = item.Contains("{0}") ? item.Replace("{0}", url) : item.TrimEnd("/") + url.EnsureStart("/");
+                url = item.Contains("{0}") ? item.Replace("{0}", url) : item.TrimSuffix("/") + url.EnsureStart("/");
 
                 span?.AppendTag(url);
                 XTrace.WriteLine("下载目录：{0}", url);

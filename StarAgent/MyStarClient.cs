@@ -151,19 +151,26 @@ internal class MyStarClient(StarAgentSetting set) : StarClient(set)
         var inService = "-s".EqualIgnoreCase(Environment.GetCommandLineArgs());
         var pid = Process.GetCurrentProcess().Id;
 
+        // 使用当前进程可执行文件名，支持重命名场景（如 MyAgent.exe）
+        var exeName = GetExecutableName();
+
+        // 诊断埋点：记录 exeName 和进程信息，排查更新后重启失败问题
+        var p = Process.GetCurrentProcess();
+        this.WriteInfoEvent("Upgrade", $"Restart: exeName={exeName} ProcessName={p.ProcessName} MainModule={p.MainModule?.FileName}");
+
         // 以服务方式运行时，重启服务，否则采取拉起进程的方式
         if (inService || Service.Host is DefaultHost host && host.InService)
         {
             this.WriteInfoEvent("Upgrade", "强制更新完成，准备重启后台服务！PID=" + pid);
 
-            // 使用外部命令重启服务。执行重启，如果失败，延迟后再次尝试
-            var rs = upgrade.Run("StarAgent", "-restart -upgrade", 3_000);
+            // 冒烟测试：尝试拉起新版，若失败等 5s 重试一次（应对慢速存储落盘 / JIT 预热）
+            var rs = upgrade.Run(exeName, "-restart -upgrade", 3_000);
             if (!rs)
             {
-                var delay = 3_000;
-                this.WriteInfoEvent("Upgrade", $"拉起新进程失败，延迟{delay}ms后重试");
+                var delay = 5_000;
+                this.WriteInfoEvent("Upgrade", $"新版首次启动失败，等待{delay}ms后重试。{upgrade.LastErrorMessage}");
                 Thread.Sleep(delay);
-                rs = upgrade.Run("StarAgent", "-restart -upgrade", 1_000);
+                rs = upgrade.Run(exeName, "-restart -upgrade", 3_000);
             }
 
             //!! 这里不需要自杀，外部命令重启服务会结束当前进程
@@ -173,21 +180,23 @@ internal class MyStarClient(StarAgentSetting set) : StarClient(set)
             }
             else
             {
-                this.WriteInfoEvent("Upgrade", "强制更新完成，但拉起新进程失败");
+                // 两次均失败，确认新版有致命缺陷，回滚 .del 恢复旧版文件
+                upgrade.Rollback();
+                this.WriteInfoEvent("Upgrade", "新版启动失败（冒烟测试不通过），已回滚旧版文件，当前服务继续运行。" + upgrade.LastErrorMessage);
             }
         }
         else
         {
             this.WriteInfoEvent("Upgrade", "强制更新完成，准备拉起新进程！PID=" + pid);
 
-            // 重新拉起进程，重启服务，否则采取拉起进程的方式
-            var rs = upgrade.Run("StarAgent", "-run -upgrade");
+            // 冒烟测试：尝试拉起新版，若失败等 5s 重试一次
+            var rs = upgrade.Run(exeName, "-run -upgrade", 3_000);
             if (!rs)
             {
-                var delay = 3_000;
-                this.WriteInfoEvent("Upgrade", $"拉起新进程失败，延迟{delay}ms后重试");
+                var delay = 5_000;
+                this.WriteInfoEvent("Upgrade", $"新版首次启动失败，等待{delay}ms后重试。{upgrade.LastErrorMessage}");
                 Thread.Sleep(delay);
-                rs = upgrade.Run("StarAgent", "-run -upgrade", 1_000);
+                rs = upgrade.Run(exeName, "-run -upgrade", 3_000);
             }
 
             if (rs)
@@ -200,8 +209,59 @@ internal class MyStarClient(StarAgentSetting set) : StarClient(set)
             }
             else
             {
-                this.WriteInfoEvent("Upgrade", "强制更新完成，但拉起新进程失败");
+                // 两次均失败，确认新版有致命缺陷，回滚 .del 恢复旧版文件
+                upgrade.Rollback();
+                this.WriteInfoEvent("Upgrade", "新版启动失败（冒烟测试不通过），已回滚旧版文件，当前服务继续运行。" + upgrade.LastErrorMessage);
             }
+        }
+    }
+
+    /// <summary>获取当前进程可执行文件名（不含扩展名），支持重命名场景。dotnet/mono 宿主下返回真正目标程序集名</summary>
+    private static String GetExecutableName()
+    {
+        // 获取进程名（不含扩展名），再防御性清理可能混入的后缀
+        var name = Process.GetCurrentProcess().GetProcessName() ?? "StarAgent";
+        return name.TrimSuffix(".exe", ".dll", ".del");
+    }
+
+    /// <summary>使用当前进程可执行文件完整路径启动新进程，避免依赖工作目录中的文件名</summary>
+    private static Boolean RunCurrentProcess(String args)
+    {
+        try
+        {
+            var process = Process.GetCurrentProcess();
+            var exePath = process.MainModule?.FileName;
+            if (exePath.IsNullOrEmpty()) return false;
+
+            var arguments = args;
+
+            // 兼容 dotnet/mono 启动模式（Linux 常见：dotnet StarAgent.dll）
+            // 参考 ProcessHelper.GetProcessName 的检测逻辑
+            var pname = process.ProcessName;
+            if (pname.EqualIgnoreCase("dotnet", "dotnet.exe") || pname?.EndsWith("/dotnet") == true)
+            {
+                var dll = Environment.GetCommandLineArgs()[0].GetFullPath();
+                if (dll.Contains(' ')) dll = $"\"{dll}\"";
+                arguments = $"{dll} {args}";
+            }
+            else if (pname.EqualIgnoreCase("mono", "mono.exe", "mono-sgen"))
+            {
+                exePath = Environment.GetCommandLineArgs()[0].GetFullPath();
+            }
+
+            var si = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = arguments,
+                UseShellExecute = false,
+            };
+
+            return Process.Start(si) != null;
+        }
+        catch (Exception ex)
+        {
+            XTrace.WriteException(ex);
+            return false;
         }
     }
     #endregion
@@ -223,16 +283,16 @@ internal class MyStarClient(StarAgentSetting set) : StarClient(set)
             // 以服务方式运行时，重启服务，否则采取拉起进程的方式
             if (inService || Service.Host is DefaultHost host && host.InService)
             {
-                // 使用外部命令重启服务
-                var rs = upgrade.Run("StarAgent", "-restart -delay");
+                // 使用当前进程可执行文件路径重启服务，避免硬编码进程名导致重命名后失效
+                var rs = RunCurrentProcess("-restart -delay");
 
                 //!! 这里不需要自杀，外部命令重启服务会结束当前进程
                 return rs + "";
             }
             else
             {
-                // 重新拉起进程
-                var rs = upgrade.Run("StarAgent", "-run -delay");
+                // 使用当前进程可执行文件路径重新拉起进程
+                var rs = RunCurrentProcess("-run -delay");
                 if (rs)
                 {
                     Service.StopWork("Upgrade");

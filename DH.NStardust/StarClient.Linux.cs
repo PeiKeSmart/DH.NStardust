@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Text.RegularExpressions;
 using NewLife;
+using NewLife.Log;
 using Stardust.Models;
 
 namespace Stardust;
@@ -1105,6 +1106,65 @@ public partial class StarClient
         {
             return null;
         }
+    }
+    #endregion
+
+    #region OOM分值控制
+    /// <summary>设置进程 OOM 优先级分值（仅 Linux 生效）</summary>
+    /// <param name="pid">目标进程ID</param>
+    /// <param name="score">OOM 分值，-1000（禁止被杀）到 1000（最先被杀），默认0为普通进程</param>
+    /// <remarks>
+    /// Linux 下 fork 子进程会继承父进程的 oom_score_adj。
+    /// StarAgent 自身 OOMScoreAdjust=-1000 禁止被杀，但其拉起的应用应作为普通进程（0），允许 OOM Killer 在内存不足时选中。
+    /// 写入 /proc/{pid}/oom_score_adj 需要 CAP_SYS_RESOURCE 或同用户权限。
+    /// </remarks>
+    public static void SetOomScoreAdj(Int32 pid, Int32 score = 0)
+    {
+        if (!Runtime.Linux) return;
+        if (pid <= 0) return;
+
+        try
+        {
+            var path = $"/proc/{pid}/oom_score_adj";
+            File.WriteAllText(path, score.ToString());
+        }
+        catch (UnauthorizedAccessException) { }
+        catch (Exception ex)
+        {
+            XTrace.WriteLine("设置进程[{0}] OOM分值={1} 失败：{2}", pid, score, ex.Message);
+        }
+    }
+
+    /// <summary>判断指定进程是否为当前进程的子进程（仅 Linux 生效）</summary>
+    /// <param name="pid">目标进程ID</param>
+    /// <returns>是子进程返回 true，否则返回 false</returns>
+    /// <remarks>
+    /// 通过读取 /proc/{pid}/stat 获取 PPID，判断是否等于当前进程 ID。
+    /// 用于区分 StarAgent 自身启动的子进程和接管的外部进程，避免对非子进程执行无效操作。
+    /// </remarks>
+    public static Boolean IsChildProcess(Int32 pid)
+    {
+        if (!Runtime.Linux) return false;
+        if (pid <= 0) return false;
+
+        try
+        {
+            var stat = File.ReadAllText($"/proc/{pid}/stat");
+            // Format: pid (name) state ppid ...
+            // Process name may contain spaces but is enclosed in parentheses;
+            // parse from the last ')' to avoid splitting on spaces inside the name.
+            // After the last ')' and trim: parts[0]=state, parts[1]=ppid, ...
+            var lastParen = stat.LastIndexOf(')');
+            if (lastParen < 0) return false;
+
+            var parts = stat[(lastParen + 1)..].Trim().Split(' ');
+            // parts[0] is state (e.g. "S"), parts[1] is ppid
+            if (parts.Length >= 2 && Int32.TryParse(parts[1], out var ppid))
+                return ppid == Process.GetCurrentProcess().Id;
+        }
+        catch { }
+
+        return false;
     }
     #endregion
 }

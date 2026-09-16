@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net45;net461;netstandard2.0;netstandard2.1;netcoreapp3.1;net5.0;net6.0;net6.0-windows;net7.0;net7.0-windows;net8.0;net8.0-windows;net9.0;net9.0-windows;net10.0;net10.0-windows</TargetFrameworks>
+    <TargetFrameworks>net45;net461;netstandard2.0;netstandard2.1;netcoreapp3.1;net5.0;net6.0;net6.0-windows;net7.0;net7.0-windows;net8.0;net8.0-windows;net9.0;net9.0-windows;net10.0;net10.0-windows;net11.0</TargetFrameworks>
     <AssemblyName>DH.NStardust</AssemblyName>
     <AssemblyTitle>星尘分布式核心</AssemblyTitle>
     <Description>星尘分布式服务框架核心库。提供配置中心、注册中心、服务发现、全链路追踪、APM性能监控、日志中心等客户端SDK，支持配置拉取、服务注册与发现、调用追踪、性能和日志上报。</Description>
     <Company>湖北登灏科技有限公司</Company>
     <Copyright>©2020-2026 湖北登灏科技有限公司</Copyright>
-    <VersionPrefix>4.21</VersionPrefix>
+    <VersionPrefix>4.25</VersionPrefix>
     <VersionSuffix>$([System.DateTime]::Now.ToString(`yyyy.MMdd`))</VersionSuffix>
     <Version>$(VersionPrefix).$(VersionSuffix)</Version>
     <FileVersion>$(Version)</FileVersion>
@@ -17,7 +17,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <NoWarn>1701;1702;NU5104;NU1505;NETSDK1138;CS7035</NoWarn>
+    <NoWarn>1701;1702;NU5104;NU1505;NETSDK1138;CS7035;CS8600;CS8602;CS8603;CS8604;CS8618;CS8619;CS8625</NoWarn>
     <AnalysisLevel>latest</AnalysisLevel>
     <WarningsAsErrors>CA2007</WarningsAsErrors>
   </PropertyGroup>
@@ -31,7 +31,7 @@
     <RepositoryUrl>https://github.com/PeiKeSmart/DH.NStardust</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>湖北登灏科技有限公司;DH组件;DH;$(AssemblyName)</PackageTags>
-    <PackageReleaseNotes>新增服务健康检查能力；部署时支持自动放行防火墙端口；优化健康检查Http连接复用与超时控制；增强分布式文件存储事件总线初始化并兼容旧版Redis</PackageReleaseNotes>
+    <PackageReleaseNotes>新增TraceAnonymous属性支持调用链匿名访问；事件总线接口异步化，GetEventBus改名为CreateEventBus；优化事件总线追踪链路与TraceId赋值；升级多个核心依赖包至最新版本</PackageReleaseNotes>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
@@ -47,9 +47,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Web\**" />
-    <EmbeddedResource Remove="Web\**" />
-    <None Remove="Web\**" />
+    <Compile Remove="Managers\ServiceController.cs" />
+    <Compile Remove="Managers\ServiceManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="System.Net.Http" />
@@ -81,30 +80,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Managers\ServiceController.cs" />
-    <Compile Remove="Managers\ServiceManager.cs" />
-    <Compile Remove="Models\CommandEventArgs.cs" />
-    <Compile Remove="Models\CommandInModel.cs" />
-    <Compile Remove="Models\CommandModel.cs" />
-    <Compile Remove="Models\CommandReplyModel.cs" />
-    <Compile Remove="Models\CommandStatus.cs" />
-    <Compile Remove="Models\EventModel.cs" />
-    <Compile Remove="Models\TokenModel.cs" />
-    <Compile Remove="Models\UpgradeInfo.cs" />
-    <Compile Remove="Monitors\AspNetCoreDiagnosticListener.cs" />
-    <Compile Remove="Monitors\GrpcDiagnosticListener.cs" />
-    <Compile Remove="Monitors\MyBuilder.cs" />
-    <Compile Remove="Monitors\MySpan.cs" />
-    <Compile Remove="Monitors\MyTraceModel.cs" />
-    <Compile Remove="Registry\RegistryClient.cs" />
-    <Compile Remove="RpcClient.cs" />
-    <Compile Remove="RpcServer.cs" />
-    <Compile Remove="Services\CacheService.cs" />
-    <Compile Remove="Services\ICommandClient.cs" />
-    <Compile Remove="Services\IEventProvider.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <None Remove="res\md5.txt" />
   </ItemGroup>
 
@@ -122,8 +97,8 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="DH.NCore" Version="4.22.2026.506-beta0855" />
-    <PackageReference Include="DH.NRemoting" Version="4.21.2026.516-beta0624" />
+    <PackageReference Include="DH.NCore" Version="4.25.2026.906-beta0249" />
+    <PackageReference Include="DH.NRemoting" Version="4.25.2026.906-beta0855" />
   </ItemGroup>
 
 </Project>

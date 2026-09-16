@@ -16,9 +16,9 @@ using Service = Stardust.Data.Service;
 
 namespace Stardust.Server.Services;
 
+/// <summary>注册服务。处理应用注册、登录认证、服务注册与发现的核心服务</summary>
 public class RegistryService : DefaultDeviceService<Node, NodeOnline>
 {
-    private readonly AppQueueService _queue;
     private readonly AppOnlineService _appOnline;
     private readonly IPasswordProvider _passwordProvider;
     private readonly AppSessionManager _sessionManager;
@@ -26,9 +26,16 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
     private readonly StarServerSetting _setting;
     private readonly ITracer _tracer;
 
-    public RegistryService(AppQueueService queue, AppOnlineService appOnline, IPasswordProvider passwordProvider, AppSessionManager sessionManager, ICacheProvider cacheProvider, StarServerSetting setting, ITracer tracer, IServiceProvider serviceProvider) : base(sessionManager, passwordProvider, cacheProvider, serviceProvider)
+    /// <summary>实例化注册服务</summary>
+    /// <param name="appOnline">应用在线服务</param>
+    /// <param name="passwordProvider">密码提供者</param>
+    /// <param name="sessionManager">会话管理器</param>
+    /// <param name="cacheProvider">缓存提供者</param>
+    /// <param name="setting">服务端设置</param>
+    /// <param name="tracer">跟踪器</param>
+    /// <param name="serviceProvider">服务提供者</param>
+    public RegistryService(AppOnlineService appOnline, IPasswordProvider passwordProvider, AppSessionManager sessionManager, ICacheProvider cacheProvider, StarServerSetting setting, ITracer tracer, IServiceProvider serviceProvider) : base(sessionManager, passwordProvider, cacheProvider, serviceProvider)
     {
-        _queue = queue;
         _appOnline = appOnline;
         _passwordProvider = passwordProvider;
         _sessionManager = sessionManager;
@@ -199,7 +206,7 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
     /// <param name="reason">注销原因</param>
     /// <param name="ip">IP地址</param>
     /// <returns></returns>
-    public override IOnlineModel Logout(DeviceContext context, String reason, String source)
+    public override IOnlineModel? Logout(DeviceContext context, String? reason, String source)
     {
         //var online = appOnline.GetOnline(context.ClientId);
         //if (online == null) return null;
@@ -222,40 +229,6 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
         return online;
     }
 
-    /// <summary>激活应用。更新在线信息和关联节点</summary>
-    /// <param name="app"></param>
-    /// <param name="inf"></param>
-    /// <param name="ip"></param>
-    /// <param name="clientId"></param>
-    /// <param name="token"></param>
-    /// <returns></returns>
-    public AppOnline SetOnline(App app, AppModel inf, String ip, String clientId, String token)
-    {
-        if (app == null) return null;
-
-        if (app.DisplayName.IsNullOrEmpty()) app.DisplayName = inf.AppName;
-        app.UpdateIP = ip;
-        app.Update();
-
-        if (!inf.ClientId.IsNullOrEmpty()) clientId = inf.ClientId;
-
-        // 更新在线记录
-        var (online, _) = _appOnline.GetOnline(app, clientId, token, inf?.IP, ip);
-        if (online != null)
-        {
-            // 关联节点，根据NodeCode匹配，如果未匹配上，则在未曾关联节点时才使用IP匹配
-            var node = Node.FindByCode(inf.NodeCode);
-            if (node == null && online.NodeId == 0) node = Node.SearchByIP(inf.IP).FirstOrDefault();
-            if (node != null) online.NodeId = node.ID;
-
-            if (!inf.Version.IsNullOrEmpty()) online.Version = inf.Version;
-            var compile = inf.Compile.ToDateTime().ToLocalTime();
-            if (compile.Year > 2000) online.Compile = compile;
-        }
-        online.Update();
-
-        return online;
-    }
     #endregion
 
     #region 服务注册
@@ -506,10 +479,10 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
     //}
 
     private static Int32 _totalCommands;
-    private static IList<AppCommand> _commands;
+    private static IList<AppCommand> _commands = [];
     private static DateTime _nextTime;
 
-    public override CommandModel[] AcquireCommands(DeviceContext context)
+    public override CommandModel[]? AcquireCommands(DeviceContext context)
     {
         // 缓存最近1000个未执行命令，用于快速过滤，避免大量节点在线时频繁查询命令表
         if (_nextTime < DateTime.Now || _totalCommands != AppCommand.Meta.Count)
@@ -543,8 +516,8 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
                 item.Status = CommandStatus.取消;
             else
             {
-                // 如果命令正在处理中，则短期内不重复下发
-                if (item.Status == CommandStatus.处理中 && item.UpdateTime.AddSeconds(30) > DateTime.Now) continue;
+                // 如果命令正在处理中，则短期内不重复下发。客户端StarAgent具备去重能力，不需要服务端过滤
+                //if (item.Status == CommandStatus.处理中 && item.UpdateTime.AddSeconds(30) > DateTime.Now) continue;
 
                 // 即时指令，或者已到开始时间的未来指令，才增加次数
                 if (item.StartTime.Year < 2000 || item.StartTime < DateTime.Now)
@@ -567,18 +540,18 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
     ///// <returns></returns>
     //public override IOnlineModel GetOnline(DeviceContext context) => base.GetOnline(context) as AppOnline;
 
-    /// <summary>设置设备的长连接上线/下线</summary>
-    /// <param name="context">上下文</param>
-    /// <param name="online"></param>
-    /// <returns></returns>
-    public override void SetOnline(DeviceContext context, Boolean online)
-    {
-        if ((GetOnline(context) ?? context.Online) is AppOnline olt)
-        {
-            olt.WebSocket = online;
-            olt.Update();
-        }
-    }
+    ///// <summary>设置设备的长连接上线/下线</summary>
+    ///// <param name="context">上下文</param>
+    ///// <param name="online"></param>
+    ///// <returns></returns>
+    //public override void SetOnline(DeviceContext context, Boolean online)
+    //{
+    //    if ((GetOnline(context) ?? context.Online) is AppOnline olt)
+    //    {
+    //        olt.LongLink = online;
+    //        olt.Update();
+    //    }
+    //}
     #endregion
 
     #region 下行通知
@@ -609,7 +582,7 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
 
         // 分发命令给该应用的所有实例
         var cmdModel = BuildCommand(app, cmd);
-        var ts = new List<Task>();
+        var ts = new List<Task<CommandReplyModel?>>();
         foreach (var item in AppOnline.FindAllByApp(app.Id))
         {
             // 对特定实例发送
@@ -617,33 +590,15 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
 
             //_queue.Publish(app.Name, item.Client, cmdModel);
             var code = $"{app.Name}@{item.Client}";
-            ts.Add(_sessionManager.PublishAsync(code, cmdModel, null, cancellationToken));
+            ts.Add(_sessionManager.PublishAsync(code, cmdModel, null, model.Timeout, cancellationToken));
         }
         await Task.WhenAll(ts);
 
-        // 挂起等待。借助redis队列，等待响应
-        if (model.Timeout > 0)
-        {
-            var q = _queue.GetReplyQueue(cmd.Id);
-            var reply = await q.TakeOneAsync(model.Timeout, cancellationToken);
-            if (reply != null)
-            {
-                // 埋点
-                using var span = _tracer?.NewSpan($"mq:AppCommandReply", reply);
-
-                if (reply.Status == CommandStatus.错误)
-                    throw new Exception($"命令错误！{reply.Data}");
-                else if (reply.Status == CommandStatus.取消)
-                    throw new Exception($"命令已取消！{reply.Data}");
-
-                return reply;
-            }
-        }
-
-        return null;
+        // SessionManager.PublishAsync 内置timeout等待，取首个非空响应
+        return await ts.FirstOrDefault(t => t.Result != null);
     }
 
-    public override Task<CommandReplyModel> SendCommand(DeviceContext context, CommandInModel model, CancellationToken cancellationToken = default)
+    public override Task<CommandReplyModel?> SendCommand(DeviceContext context, CommandInModel model, CancellationToken cancellationToken = default)
     {
         if (context.Device is not App app) return null;
 
@@ -663,13 +618,8 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
         cmd.Result = model.Data;
         cmd.Update();
 
-        // 推入服务响应队列，让服务调用方得到响应
-        var topic = $"appreply:{model.Id}";
-        var q = _cacheProvider.GetQueue<CommandReplyModel>(topic);
-        q.Add(model);
-
-        // 设置过期时间，过期自动清理
-        _cacheProvider.Cache.SetExpire(topic, TimeSpan.FromSeconds(60));
+        // 通过会话管理器内置的响应事件总线广播响应（跨实例广播不阻塞）
+        _ = _sessionManager.PublishResponseAsync(model, default);
 
         return 1;
     }
@@ -769,9 +719,9 @@ public class RegistryService : DefaultDeviceService<Node, NodeOnline>
     #endregion
 
     #region 辅助
-    public override IDeviceModel QueryDevice(String code) => App.FindByName(code);
+    public override IDeviceModel? QueryDevice(String code) => App.FindByName(code);
 
-    public override IOnlineModel QueryOnline(String sessionId) => AppOnline.FindBySessionId(sessionId, true);
+    public override IOnlineModel? QueryOnline(String sessionId) => AppOnline.FindBySessionId(sessionId, true);
 
     protected override String GetSessionId(DeviceContext context) => context.ClientId ?? base.GetSessionId(context);
 

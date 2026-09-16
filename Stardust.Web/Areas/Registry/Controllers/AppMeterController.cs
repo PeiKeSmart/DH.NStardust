@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Filters;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Charts;
@@ -11,6 +11,7 @@ using static Stardust.Data.AppMeter;
 
 namespace Stardust.Web.Areas.Registry.Controllers;
 
+/// <summary>应用性能。按应用客户端维度展示性能指标面板（吞吐量/响应时间/错误率）</summary>
 [RegistryArea]
 [Menu(0, false)]
 public class AppMeterController : RegistryEntityController<AppMeter>
@@ -29,6 +30,9 @@ public class AppMeterController : RegistryEntityController<AppMeter>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<AppMeter> Search(Pager p)
     {
         PageSetting.EnableAdd = false;

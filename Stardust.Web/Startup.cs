@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.FileProviders;
@@ -15,9 +15,11 @@ using Stardust.Data.Deployment;
 using Stardust.Data.Monitors;
 using Stardust.Data.Nodes;
 using Stardust.Data.Platform;
+using Stardust.Dns;
 using Stardust.Extensions.Caches;
 using Stardust.Models;
 using Stardust.Server;
+using Stardust.Services;
 using Stardust.Server.Services;
 using Stardust.Web.Services;
 using XCode;
@@ -60,14 +62,27 @@ public class Startup
         services.AddSingleton<ConfigService>();
         services.AddSingleton<AppOnlineService>();
         services.AddSingleton<DeployService>();
+        services.AddSingleton<PipelineService>();
         services.AddSingleton<HotAppService>();
         services.AddSingleton<NewLife.Cube.Services.TokenService>();
+        services.AddSingleton<McpService>();
+
+        // DDNS服务
+        services.AddSingleton<IDnsProvider, AliyunDnsProvider>();
+        services.AddSingleton<IDnsProvider, TencentCloudDnsProvider>();
+        services.AddSingleton<IDnsProvider, UCloudDnsProvider>();
+        services.AddSingleton<DnsProviderFactory>();
+        services.AddSingleton<DnsService>();
 
         services.AddCubeFileStorage("Star");
+
+        services.AddHttpClient();
 
         //services.AddResponseCompression();
 
         // 后台服务。数据保留，定时删除过期数据
+        services.AddSingleton<IMySqlService, MySqlService>();
+        services.AddHostedService(s => (MySqlService)s.GetRequiredService<IMySqlService>());
         services.AddHostedService<ApolloService>();
         services.AddHostedService<NodeStatService>();
         services.AddHostedService<FixDataHostedService>();
@@ -89,6 +104,13 @@ public class Startup
         {
             options.MaxRequestBodySize = Int32.MaxValue;
         });
+
+        // DDNS服务
+        services.AddSingleton<IDnsProvider, AliyunDnsProvider>();
+        services.AddSingleton<IDnsProvider, TencentCloudDnsProvider>();
+        services.AddSingleton<IDnsProvider, UCloudDnsProvider>();
+        services.AddSingleton<DnsProviderFactory>();
+        services.AddSingleton<DnsService>();
 
         services.AddControllersWithViews();
         services.AddCube();
@@ -151,6 +173,10 @@ public class Startup
         //app.UseStardust();
         if (Environment.GetEnvironmentVariable("__ASPNETCORE_BROWSER_TOOLS") is null)
             app.UseResponseCompression();
+
+        // MCP 协议端点中间件：在 Cube 之前短路 /mcp，避免 Web 中间件影响机器API
+        app.UseMiddleware<McpMiddleware>();
+
         app.UseCube(env);
 
         // 注册退出事件

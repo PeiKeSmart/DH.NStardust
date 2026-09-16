@@ -1,4 +1,4 @@
-﻿using NewLife;
+using NewLife;
 using NewLife.Cube;
 using NewLife.Cube.Extensions;
 using NewLife.Web;
@@ -7,6 +7,7 @@ using XCode.Membership;
 
 namespace Stardust.Web.Areas.Redis.Controllers;
 
+/// <summary>Redis消息队列。管理 Redis 消息队列的消费状态和积压情况</summary>
 [Menu(30, false)]
 [RedisArea]
 public class RedisMessageQueueController : EntityController<RedisMessageQueue>
@@ -36,6 +37,9 @@ public class RedisMessageQueueController : EntityController<RedisMessageQueue>
         }
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<RedisMessageQueue> Search(Pager p)
     {
         var redisId = p["redisId"].ToInt(-1);

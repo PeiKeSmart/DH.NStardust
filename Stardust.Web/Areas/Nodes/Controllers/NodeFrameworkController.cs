@@ -1,10 +1,11 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 using NewLife;
 using NewLife.Cube;
 using NewLife.Serialization;
 using NewLife.Web;
 using Stardust.Data.Nodes;
+using NewLife.Remoting.Models;
 using Stardust.Models;
 using XCode;
 using XCode.Membership;
@@ -12,8 +13,8 @@ using XCode.Model;
 
 namespace Stardust.Web.Areas.Nodes.Controllers;
 
+/// <summary>节点框架。管理各节点上的 .NET 运行时版本，支持安装新版框架和卸载旧版框架</summary>
 [DisplayName("节点框架")]
-[Description("管理各个节点的.NET框架，安装新版框架，卸载旧版框架")]
 [Menu(70)]
 [NodesArea]
 public class NodeFrameworkController : EntityController<Node>
@@ -25,6 +26,9 @@ public class NodeFrameworkController : EntityController<Node>
         _starFactory = starFactory;
     }
 
+    /// <summary>高级搜索。按条件分页查询</summary>
+    /// <param name="p">分页参数</param>
+    /// <returns>实体列表</returns>
     protected override IEnumerable<Node> Search(Pager p)
     {
         var rids = p["areaId"].SplitAsInt("/");
@@ -55,43 +59,54 @@ public class NodeFrameworkController : EntityController<Node>
 
     [DisplayName("安装")]
     [EntityAuthorize((PermissionFlags)16)]
-    public async Task<ActionResult> InstallFramework(String ver, String baseUrl)
+    public async Task<ActionResult> InstallFramework(String ver, String kind)
     {
         if (GetRequest("keys") == null) throw new ArgumentNullException(nameof(SelectKeys));
         if (ver.IsNullOrEmpty()) throw new ArgumentNullException(nameof(ver));
 
         ver = ver?.Trim();
-        baseUrl = baseUrl?.Trim();
+        kind = kind?.Trim();
 
         var bf = new BatchFinder<Int32, Node>();
         bf.Add(SelectKeys.Select(e => e.ToInt()));
 
-        //var baseUrl = "";
-        var set = NewLife.Setting.Current;
-        var server = set.PluginServer;
-        if (baseUrl.IsNullOrEmpty() && !server.IsNullOrEmpty() && !server.Contains("x.newlifex.com", StringComparison.CurrentCultureIgnoreCase))
-        {
-            baseUrl = server.TrimEnd('/');
-            if (!baseUrl.EndsWithIgnoreCase("/dotnet")) baseUrl += "/dotnet";
-        }
-
-        var model = new FrameworkModel { Version = ver, BaseUrl = baseUrl, Force = true };
-        var args = model.ToJson();
-
-        var ts = new List<Task<Int32>>();
+        var ts = new List<(String name, Task<CommandReplyModel?> task)>();
         foreach (var item in SelectKeys)
         {
             var node = bf.FindByKey(item.ToInt());
-            if (node != null && !node.Code.IsNullOrEmpty())
-            {
-                ts.Add(_starFactory.SendNodeCommand(node.Code, "framework/install", args, 0, 30 * 24 * 3600, 0));
+            if (node == null || node.Code.IsNullOrEmpty()) continue;
 
-            }
+            // 为每个节点按 OS/Arch 解析匹配的安装包
+            var pkg = DotNetPackage.ResolveForNode(ver, kind, node);
+            if (pkg == null) continue;
+
+            var source = pkg.Source;
+            if (!source.IsNullOrEmpty() && !pkg.FileName.IsNullOrEmpty() && source.EndsWith(pkg.FileName))
+                source = source.Substring(0, source.Length - pkg.FileName.Length);
+
+            var fmodel = new FrameworkModel
+            {
+                Version = $"{pkg.Version}-{pkg.Kind}",
+                BaseUrl = source,
+                Force = true,
+            };
+
+            ts.Add((node.Name, _starFactory.SendNodeCommandAsync(node.Code, "framework/install", fmodel.ToJson(), 0, 30 * 24 * 3600, 0, HttpContext.RequestAborted)));
         }
 
-        var rs = await Task.WhenAll(ts);
+        if (ts.Count == 0) return JsonRefresh("没有找到匹配的安装包，请检查版本和安装类型");
 
-        return JsonRefresh($"操作成功！下发指令{rs.Length}个，成功{rs.Count(e => e > 0)}个");
+        await Task.WhenAll(ts.Select(t => t.task));
+        var success = ts.Count(t => t.task.Result != null);
+        var timeout = ts.Count(t => t.task.Result == null);
+        var msg = $"操作成功！下发{ts.Count}个，响应{success}个，超时{timeout}个";
+        foreach (var (name, task) in ts)
+        {
+            var reply = task.Result;
+            if (reply != null)
+                msg += $"\n{name}: {reply.Data ?? "(无返回数据)"}";
+        }
+        return JsonRefresh(msg);
     }
 
     [DisplayName("卸载")]
@@ -109,19 +124,27 @@ public class NodeFrameworkController : EntityController<Node>
         var model = new FrameworkModel { Version = ver, BaseUrl = null, Force = true };
         var args = model.ToJson();
 
-        var ts = new List<Task<Int32>>();
+        var ts = new List<(String name, Task<CommandReplyModel?> task)>();
         foreach (var item in SelectKeys)
         {
             var node = bf.FindByKey(item.ToInt());
             if (node != null && !node.Code.IsNullOrEmpty())
             {
-                ts.Add(_starFactory.SendNodeCommand(node.Code, "framework/uninstall", args, 0, 30 * 24 * 3600, 0));
-
+                ts.Add((node.Name, _starFactory.SendNodeCommandAsync(node.Code, "framework/uninstall", args, 0, 30 * 24 * 3600, 0, HttpContext.RequestAborted)));
             }
         }
 
-        var rs = await Task.WhenAll(ts);
+        await Task.WhenAll(ts.Select(t => t.task));
+        var success = ts.Count(t => t.task.Result != null);
+        var timeout = ts.Count(t => t.task.Result == null);
+        var msg = $"操作成功！下发{ts.Count}个，响应{success}个，超时{timeout}个";
+        foreach (var (name, task) in ts)
+        {
+            var reply = task.Result;
+            if (reply != null)
+                msg += $"\n{name}: {reply.Data ?? "(无返回数据)"}";
+        }
 
-        return JsonRefresh($"操作成功！下发指令{rs.Length}个，成功{rs.Count(e => e > 0)}个");
+        return JsonRefresh(msg);
     }
 }

@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <EntityModel xmlns:xs="http://www.w3.org/2001/XMLSchema-instance" xs:schemaLocation="https://newlifex.com https://newlifex.com/Model202509.xsd" Document="https://newlifex.com/xcode/model" ModelVersion="2.0.2026.130" xmlns="https://newlifex.com/Model202509.xsd">
   <Option>
     <!--类名模板。其中{name}替换为Table.Name，如{name}Model/I{name}Dto等-->
@@ -95,6 +95,7 @@
         <Column Name="NewServer" DataType="String" Description="新服务器。该节点自动迁移到新的服务器地址" Category="参数设置" />
         <Column Name="LastVersion" DataType="String" Description="最后版本。最后一次升级所使用的版本号，避免重复升级同一个版本" Category="参数设置" />
         <Column Name="Channel" DataType="Int32" Description="通道。升级通道，默认Release通道，使用Beta通道可以得到较新版本" Category="参数设置" Type="NodeChannels" />
+        <Column Name="Domains" DataType="String" Length="500" Description="域名列表。多个域名逗号分隔，如sh05.newlifex.com,sh05.feifan.link" Category="参数设置" />
         <Column Name="WebHook" DataType="String" Length="500" Description="告警机器人。钉钉、企业微信等" Category="告警" />
         <Column Name="AlarmCpuRate" DataType="Int32" ItemType="percent" Description="CPU告警。CPU告警的百分比阈值，CPU使用率达到该值时告警，百分之一" Category="告警" />
         <Column Name="AlarmMemoryRate" DataType="Int32" ItemType="percent" Description="内存告警。内存告警的百分比阈值，内存使用率达到该值时告警，百分之一" Category="告警" />
@@ -128,6 +129,31 @@
         <Index Columns="UpdateTime" />
       </Indexes>
     </Table>
+    <Table Name="DomainProvider" Description="域名供应商。域名对应的DNS供应商凭据配置">
+      <Columns>
+        <Column Name="Id" DataType="Int32" Identity="True" PrimaryKey="True" Description="编号" />
+        <Column Name="Provider" DataType="String" Description="供应商。阿里云Aliyun，腾讯云TencentCloud，优刻得UCloud" />
+        <Column Name="Name" DataType="String" Master="True" Length="100" Description="名称。凭据名称，如阿里云主账号" />
+        <Column Name="AppKey" DataType="String" Length="200" Description="AppKey。AccessKeyId/SecretId" />
+        <Column Name="AppSecret" DataType="String" Length="500" Description="AppSecret。AccessKeySecret/SecretKey" />
+        <Column Name="Domain" DataType="String" Length="200" Description="域名。管理的根域名，如newlifex.com" />
+        <Column Name="Endpoint" DataType="String" Length="200" Description="API端点。为空使用供应商默认值" />
+        <Column Name="DNSZoneId" DataType="String" Length="200" Description="DNS Zone ID。UCloud必填，其他供应商留空" />
+        <Column Name="Region" DataType="String" Description="地域。UCloud使用，默认cn-bj2" />
+        <Column Name="Enable" DataType="Boolean" Description="启用" />
+        <Column Name="CreateUserID" DataType="Int32" Description="创建者" Category="扩展" />
+        <Column Name="CreateTime" DataType="DateTime" Description="创建时间" Category="扩展" />
+        <Column Name="CreateIP" DataType="String" Description="创建地址" Category="扩展" />
+        <Column Name="UpdateUserID" DataType="Int32" Description="更新者" Category="扩展" />
+        <Column Name="UpdateTime" DataType="DateTime" Description="更新时间" Category="扩展" />
+        <Column Name="UpdateIP" DataType="String" Description="更新地址" Category="扩展" />
+        <Column Name="Remark" DataType="String" Length="500" Description="备注" Category="扩展" />
+      </Columns>
+      <Indexes>
+        <Index Columns="Domain" />
+        <Index Columns="UpdateTime" />
+      </Indexes>
+    </Table>
     <Table Name="NodeOnline" Description="节点在线" ConnName="StardustData" MaxCacheCount="0">
       <Columns>
         <Column Name="ID" DataType="Int32" Identity="True" PrimaryKey="True" Description="编号" />
@@ -145,7 +171,7 @@
         <Column Name="Address" DataType="String" Length="200" Description="地址。该节点所处地理地址" />
         <Column Name="Location" DataType="String" Description="位置。场地安装位置，或者经纬度" />
         <Column Name="PingCount" DataType="Int32" Description="心跳" />
-        <Column Name="WebSocket" DataType="Boolean" Description="长连接。WebSocket长连接" />
+        <Column Name="LongLink" DataType="Boolean" Description="长连接。是否保持长连接" />
         <Column Name="Version" DataType="String" Description="版本" />
         <Column Name="CompileTime" DataType="DateTime" Description="编译时间" />
         <Column Name="OSKind" DataType="Int32" Description="系统种类。主流操作系统类型，不考虑子版本" Type="Stardust.Models.OSKinds" />
@@ -181,6 +207,7 @@
         <Column Name="Offset" DataType="Int32" Description="偏移。客户端UTC时间加上一半延迟再减服务端UTC时间，单位ms" />
         <Column Name="LocalTime" DataType="DateTime" Description="本地时间" />
         <Column Name="Uptime" DataType="Int32" ItemType="TimeSpan" Description="开机时间。单位s" />
+        <Column Name="LoginTime" DataType="DateTime" Description="登录时间。本次会话的登录时间，用于计算在线时长" />
         <Column Name="MACs" DataType="String" Length="200" Description="网卡" />
         <Column Name="Processes" DataType="String" Length="2000" Description="进程列表" />
         <Column Name="Token" DataType="String" Length="500" Description="令牌" />
@@ -255,6 +282,7 @@
         <Column Name="Offset" DataType="Int32" Description="偏移。客户端UTC时间加上一半延迟再减服务端UTC时间，单位ms" />
         <Column Name="LocalTime" DataType="DateTime" Description="本地时间" />
         <Column Name="Uptime" DataType="Int32" ItemType="TimeSpan" Description="开机时间。单位s" />
+        <Column Name="TraceId" DataType="String" Description="追踪。最新一次查看采样，可用于关联多个片段，建立依赖关系，随线程上下文、Http、Rpc传递" Category="扩展" />
         <Column Name="Creator" DataType="String" Description="创建者。服务端节点" Category="扩展" />
         <Column Name="CreateTime" DataType="DateTime" Description="创建时间" Category="扩展" />
         <Column Name="CreateIP" DataType="String" Description="创建地址" Category="扩展" />
@@ -379,6 +407,75 @@
       <Indexes>
         <Index Columns="AreaId" />
         <Index Columns="Name" />
+      </Indexes>
+    </Table>
+    <Table Name="ProductRelease" Description="产品版本。产品发布版本，一个版本包含多个面向不同.NET运行时的包">
+      <Columns>
+        <Column Name="Id" DataType="Int32" Identity="True" PrimaryKey="True" Description="编号" />
+        <Column Name="Version" DataType="String" Master="True" Description="版本号。完整版本号，如 3.7.2026.0611" />
+        <Column Name="ProductCode" DataType="String" Description="产品编码。StarAgent/CrazyCoder/XCoder 等，用于区分不同类型产品" />
+        <Column Name="Enable" DataType="Boolean" Description="启用。启用/停用" />
+        <Column Name="Force" DataType="Boolean" Description="强制。强制升级" />
+        <Column Name="Channel" DataType="Int32" Description="升级通道" Type="NodeChannels" />
+        <Column Name="Preinstall" DataType="String" Length="200" Description="预安装命令。更新前要执行的命令，解压缩后在解压缩目录执行，ProductPackage可覆盖" />
+        <Column Name="Executor" DataType="String" Length="200" Description="执行命令。空格前后为文件名和参数，ProductPackage可覆盖" />
+        <Column Name="CreateUserID" DataType="Int32" Description="创建者" Category="扩展" />
+        <Column Name="CreateTime" DataType="DateTime" Description="创建时间" Category="扩展" />
+        <Column Name="CreateIP" DataType="String" Description="创建地址" Category="扩展" />
+        <Column Name="UpdateUserID" DataType="Int32" Description="更新者" Category="扩展" />
+        <Column Name="UpdateTime" DataType="DateTime" Description="更新时间" Category="扩展" />
+        <Column Name="UpdateIP" DataType="String" Description="更新地址" Category="扩展" />
+        <Column Name="Remark" DataType="String" Length="500" Description="备注" Category="扩展" />
+      </Columns>
+      <Indexes>
+        <Index Columns="Version" Unique="True" />
+        <Index Columns="ProductCode" />
+      </Indexes>
+    </Table>
+    <Table Name="ProductPackage" Description="产品发布包。隶属于发布版本的安装包，面向不同.NET运行时目标">
+      <Columns>
+        <Column Name="Id" DataType="Int32" Identity="True" PrimaryKey="True" Description="编号" />
+        <Column Name="ReleaseId" DataType="Int32" Map="ProductRelease@Id" Description="发布版本。所属发布版本" />
+        <Column Name="TargetRuntime" DataType="String" Description="目标运行时。目标.NET运行时主版本，如 4/5/6/7/8/9/10，*表示万能包" />
+        <Column Name="FileName" DataType="String" Length="200" Description="文件名。安装包文件名，如 staragent80.zip" />
+        <Column Name="Source" DataType="String" ItemType="file-zip" Length="200" Description="升级源。下载路径（Cube附件或外部URL）" />
+        <Column Name="Size" DataType="Int64" ItemType="GMK" Description="文件大小" />
+        <Column Name="FileHash" DataType="String" Description="文件哈希。MD5散列" />
+        <Column Name="Preinstall" DataType="String" Length="200" Description="预安装命令。更新前要执行的命令，解压缩后，在解压缩目录执行" />
+        <Column Name="Executor" DataType="String" Length="200" Description="执行命令。空格前后为文件名和参数，客户端根据此命令启动新版本" />
+        <Column Name="CreateUserID" DataType="Int32" Description="创建者" Category="扩展" />
+        <Column Name="CreateTime" DataType="DateTime" Description="创建时间" Category="扩展" />
+        <Column Name="CreateIP" DataType="String" Description="创建地址" Category="扩展" />
+        <Column Name="Remark" DataType="String" Length="500" Description="备注。如 net8.0 通用" Category="扩展" />
+      </Columns>
+      <Indexes>
+        <Index Columns="ReleaseId" />
+      </Indexes>
+    </Table>
+    <Table Name="DotNetPackage" Description="dotNet安装包。管理面向不同操作系统和CPU架构的.NET运行时安装包">
+      <Columns>
+        <Column Name="Id" DataType="Int32" Identity="True" PrimaryKey="True" Description="编号" />
+        <Column Name="Version" DataType="String" Description="版本号。完整版本号，如 10.0.9" />
+        <Column Name="Kind" DataType="String" Description="安装类型。runtime/aspnet/desktop/host" />
+        <Column Name="OSKind" DataType="Int32" Description="操作系统。目标操作系统，0表示通用" Type="Stardust.Models.OSKind" />
+        <Column Name="Architecture" DataType="Int32" Description="CPU架构。目标指令集架构，0表示通用" Type="Stardust.Models.CpuArch" />
+        <Column Name="FileName" DataType="String" Length="200" Description="文件名。官方文件名，如 aspnetcore-runtime-10.0.9-linux-x64.tar.gz" />
+        <Column Name="Source" DataType="String" ItemType="file-zip" Length="200" Description="下载源。Cube附件（手动上传）或外部URL（自动同步）" />
+        <Column Name="Size" DataType="Int64" ItemType="GMK" Description="文件大小" />
+        <Column Name="FileHash" DataType="String" Length="200" Description="文件哈希。SHA512散列" />
+        <Column Name="Enable" DataType="Boolean" Description="启用。启用/停用" />
+        <Column Name="Force" DataType="Boolean" Description="强制。强制安装，即使已存在同版本也重新安装" />
+        <Column Name="Channel" DataType="Int32" Description="升级通道" Type="NodeChannels" />
+        <Column Name="CreateUserID" DataType="Int32" Description="创建者" Category="扩展" />
+        <Column Name="CreateTime" DataType="DateTime" Description="创建时间" Category="扩展" />
+        <Column Name="CreateIP" DataType="String" Description="创建地址" Category="扩展" />
+        <Column Name="UpdateUserID" DataType="Int32" Description="更新者" Category="扩展" />
+        <Column Name="UpdateTime" DataType="DateTime" Description="更新时间" Category="扩展" />
+        <Column Name="UpdateIP" DataType="String" Description="更新地址" Category="扩展" />
+        <Column Name="Remark" DataType="String" Length="500" Description="备注" Category="扩展" />
+      </Columns>
+      <Indexes>
+        <Index Columns="Version,Kind,OSKind,Architecture" />
       </Indexes>
     </Table>
   </Tables>

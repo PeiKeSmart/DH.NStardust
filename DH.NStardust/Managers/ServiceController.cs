@@ -268,7 +268,7 @@ public class ServiceController : DisposeBase
                 PublishNginxConfig(workDir);
 
                 // 开放防火墙端口
-                OpenFirewallPorts(workDir);
+                OpenFirewallPorts(workDir, args);
 
                 return true;
             }
@@ -308,7 +308,8 @@ public class ServiceController : DisposeBase
 
     /// <summary>开放防火墙端口</summary>
     /// <param name="workDir">工作目录</param>
-    private void OpenFirewallPorts(String workDir)
+    /// <param name="arguments">命令行参数，用于检测 urls 覆盖的端口</param>
+    private void OpenFirewallPorts(String workDir, String? arguments = null)
     {
         try
         {
@@ -323,7 +324,7 @@ public class ServiceController : DisposeBase
             WriteLog("检测到防火墙类型：{0}", firewall.Type);
 
             // 检测需要开放的端口
-            var ports = FirewallManager.DetectPorts(workDir).ToList();
+            var ports = FirewallManager.DetectPorts(workDir, arguments).ToList();
             if (ports.Count == 0)
             {
                 WriteLog("未检测到需要开放的端口");
@@ -638,27 +639,34 @@ public class ServiceController : DisposeBase
             // 检查内存限制
             if (inf.MaxMemory <= 0) return p;
 
-            var mem = p.WorkingSet64 / 1024 / 1024;
-            span?.AppendTag($"MaxMemory={inf.MaxMemory}M WorkingSet64={mem}M");
+            // PrivateMemorySize64 反映进程真实已提交私有内存，不受 OS 换页影响
+            // WorkingSet64 仅反映当前物理驻留集，内存紧张时会被 OS 自动修剪导致误判
+            var ws = p.WorkingSet64 / 1024 / 1024;
+            var prv = p.PrivateMemorySize64 / 1024 / 1024;
+            span?.AppendTag($"MaxMemory={inf.MaxMemory}M WorkingSet64={ws}M PrivateMemorySize64={prv}M");
 
-            // 定期清理内存
+            var mem = prv;
+
+            // 定期清理内存（仅 Windows，Linux 上 GC 会自动归还 OS）
             if (Runtime.Windows && _nextCollect < DateTime.Now && mem > inf.MaxMemory)
             {
-                _nextCollect = DateTime.Now.AddSeconds(600);
+                _nextCollect = DateTime.Now.AddSeconds(120);
 
                 try
                 {
                     Runtime.FreeMemory(p.Id);
-                    //NativeMethods.EmptyWorkingSet(p.Handle);
                 }
                 catch { }
 
                 p.Refresh();
-                mem = p.WorkingSet64 / 1024 / 1024;
+                ws = p.WorkingSet64 / 1024 / 1024;
+                prv = p.PrivateMemorySize64 / 1024 / 1024;
+                mem = prv;
+                span?.AppendTag($"After FreeMemory: WorkingSet64={ws}M PrivateMemorySize64={prv}M");
             }
             if (mem <= inf.MaxMemory) return p;
 
-            WriteLog("内存超限！{0}>{1}", mem, inf.MaxMemory);
+            WriteLog("内存超限！PrivateMemorySize64={0}M / WorkingSet64={1}M > MaxMemory={2}M", prv, ws, inf.MaxMemory);
 
             Stop("内存超限");
 
@@ -685,6 +693,12 @@ public class ServiceController : DisposeBase
         WriteLog("应用[{0}/{1}]已启动（{2}），直接接管", p.Id, Name, reason);
 
         SetProcess(p);
+
+        // OOM分值。接管已存在进程时修正其OOM分值，仅对 StarAgent 启动的子进程有效（避免对非子进程写入失败）
+        var oomScore = Info?.OomScoreAdjust ?? 0;
+        if (Runtime.Linux && oomScore != -1000 && StarClient.IsChildProcess(p.Id))
+            StarClient.SetOomScoreAdj(p.Id, oomScore);
+
         var service = Info;
         if (service != null)
         {
