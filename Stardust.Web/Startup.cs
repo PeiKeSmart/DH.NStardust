@@ -238,7 +238,10 @@ public class Startup
             {
                 XTrace.WriteLine("发现Star应用旧表 App ，准备重命名");
 
-                var rs = dal.Execute($"Alter Table App Rename To StarApp");
+                // 表名交给驱动格式化，VastBase/PostgreSQL 等库会转为小写，避免裸 SQL 因大小写不一致找不到表
+                var oldTable = dal.Db.FormatName("App");
+                var newTable = dal.Db.FormatName("StarApp");
+                var rs = dal.Execute($"Alter Table {oldTable} Rename To {newTable}");
                 XTrace.WriteLine("重命名结果：{0}", rs);
             }
         }

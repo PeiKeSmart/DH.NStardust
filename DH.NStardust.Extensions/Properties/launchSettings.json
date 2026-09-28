@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "DH.NStardust.Extensions": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:62670;http://localhost:62671"
+    }
+  }
+}
